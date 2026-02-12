@@ -6,6 +6,8 @@ export type SubscriptionStatus = "active" | "inactive" | "canceled";
 export type UserRole = "user" | "admin";
 export type UserStatus = "active" | "suspended" | "blocked";
 export type PaymentMethod = "stripe" | "cup_manual";
+export type ReportReason = "fake" | "inappropriate" | "harassment" | "minor" | "spam" | "other";
+export type ReportStatus = "pending" | "reviewed" | "action_taken" | "dismissed";
 
 export interface UserProfile {
   user_id: string;
@@ -108,10 +110,23 @@ export interface Report {
   id: string;
   reporter_id: string;
   reported_id: string;
-  reason: string;
-  description: string | null;
-  status: "pending" | "reviewed" | "resolved";
+  reason: ReportReason;
+  details: string | null;
+  status: ReportStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
   created_at: string;
+}
+
+export interface ReceivedLike {
+  user_id: string;
+  display_name: string;
+  date_of_birth: string;
+  gender: Gender;
+  bio: string | null;
+  photos: UserPhoto[];
+  swipe_type: "like" | "superlike";
+  swiped_at: string;
 }
 
 export interface AdminInsight {

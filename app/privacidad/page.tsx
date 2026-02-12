@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
+export const dynamic = "force-static";
+export const revalidate = 86400; // 24 hours
+
 export const metadata = {
   title: "Política de Privacidad — Empatando",
   description: "Política de privacidad y protección de datos de Empatando",

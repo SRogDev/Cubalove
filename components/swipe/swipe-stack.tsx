@@ -16,6 +16,7 @@ interface SwipeStackProps {
   profiles: UserProfile[];
   userLat?: number | null;
   userLng?: number | null;
+  canRewind?: boolean;
   onSwipe: (profile: UserProfile, direction: "like" | "nope" | "superlike") => void;
   onViewProfile: (profile: UserProfile) => void;
 }
@@ -23,7 +24,14 @@ interface SwipeStackProps {
 const SWIPE_THRESHOLD = 100;
 const SWIPE_UP_THRESHOLD = -80;
 
-export const SwipeStack = ({ profiles, userLat, userLng, onSwipe, onViewProfile }: SwipeStackProps) => {
+export const SwipeStack = ({
+  profiles,
+  userLat,
+  userLng,
+  canRewind = false,
+  onSwipe,
+  onViewProfile,
+}: SwipeStackProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [exitDirection, setExitDirection] = useState<"left" | "right" | "up" | null>(null);
   const [lastSwiped, setLastSwiped] = useState<number | null>(null);
@@ -193,7 +201,7 @@ export const SwipeStack = ({ profiles, userLat, userLng, onSwipe, onViewProfile 
         onLike={() => handleSwipe("like")}
         onNope={() => handleSwipe("nope")}
         onSuperlike={() => handleSwipe("superlike")}
-        onUndo={handleUndo}
+        onUndo={canRewind ? handleUndo : undefined}
         canUndo={lastSwiped !== null}
       />
     </div>

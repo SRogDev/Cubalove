@@ -1,5 +1,5 @@
 -- ============================================================================
--- Dating Cuba — Database Schema
+-- Empatando — Database Schema
 -- ============================================================================
 -- Ejecutar este archivo completo en el SQL Editor de Supabase.
 -- Todas las tablas usan el schema "public" y tienen RLS habilitado.
@@ -212,13 +212,19 @@ CREATE TABLE reports (
   reporter_id uuid NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
   reported_id uuid NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
   reason text NOT NULL CHECK (reason IN (
-    'perfil_falso', 'acoso', 'contenido_inapropiado',
-    'spam', 'menor_de_edad', 'otro'
+    'fake', 'inappropriate', 'harassment', 'minor', 'spam', 'other'
   )),
-  description text CHECK (char_length(description) <= 500),
-  status text DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed', 'resolved')),
+  details text,
+  status text DEFAULT 'pending' CHECK (
+    status IN ('pending', 'reviewed', 'action_taken', 'dismissed')
+  ),
+  reviewed_by uuid REFERENCES users(user_id),
+  reviewed_at timestamptz,
   created_at timestamptz DEFAULT now()
 );
+
+CREATE INDEX idx_reports_status ON reports(status, created_at DESC);
+CREATE INDEX idx_reports_reported ON reports(reported_id);
 
 CREATE TABLE blocks (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -522,6 +528,18 @@ CREATE POLICY "swipes_insert_own"
   ON swipes FOR INSERT
   TO authenticated
   WITH CHECK (auth.uid() = user_id);
+
+-- Puedes eliminar tus propios swipes (rewind)
+CREATE POLICY "swipes_delete_own"
+  ON swipes FOR DELETE
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+-- Puedes ver swipes que te apuntan (para "ver quién te dio like")
+CREATE POLICY "swipes_select_target"
+  ON swipes FOR SELECT
+  TO authenticated
+  USING (auth.uid() = target_id AND type IN ('like', 'superlike'));
 
 -- ===== MATCHES =====
 -- Solo puedes ver matches donde participas
@@ -847,7 +865,68 @@ CREATE TRIGGER set_updated_at_user_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ============================================================================
--- 13. SUPABASE REALTIME
+-- 13. REWIND — Trigger para revertir stats al eliminar swipe
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION revert_swipe_stats()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF OLD.type = 'like' THEN
+    UPDATE user_stats SET
+      likes_given = GREATEST(0, likes_given - 1),
+      swipes_today = GREATEST(0, swipes_today - 1),
+      updated_at = now()
+    WHERE user_id = OLD.user_id;
+
+    UPDATE user_stats SET
+      likes_received = GREATEST(0, likes_received - 1),
+      updated_at = now()
+    WHERE user_id = OLD.target_id;
+
+  ELSIF OLD.type = 'superlike' THEN
+    UPDATE user_stats SET
+      superlikes_given = GREATEST(0, superlikes_given - 1),
+      superlikes_today = GREATEST(0, superlikes_today - 1),
+      swipes_today = GREATEST(0, swipes_today - 1),
+      updated_at = now()
+    WHERE user_id = OLD.user_id;
+
+    UPDATE user_stats SET
+      superlikes_received = GREATEST(0, superlikes_received - 1),
+      updated_at = now()
+    WHERE user_id = OLD.target_id;
+
+  ELSIF OLD.type = 'nope' THEN
+    UPDATE user_stats SET
+      swipes_today = GREATEST(0, swipes_today - 1),
+      updated_at = now()
+    WHERE user_id = OLD.user_id;
+  END IF;
+
+  -- Unmatch if there was a match created from this swipe
+  UPDATE matches SET unmatched = true
+  WHERE user1_id = LEAST(OLD.user_id, OLD.target_id)
+    AND user2_id = GREATEST(OLD.user_id, OLD.target_id)
+    AND unmatched = false;
+
+  -- Decrement match count if a match was removed
+  IF FOUND THEN
+    UPDATE user_stats SET
+      matches_count = GREATEST(0, matches_count - 1),
+      updated_at = now()
+    WHERE user_id IN (OLD.user_id, OLD.target_id);
+  END IF;
+
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER revert_stats_on_swipe_delete
+  AFTER DELETE ON swipes
+  FOR EACH ROW EXECUTE FUNCTION revert_swipe_stats();
+
+-- ============================================================================
+-- 14. SUPABASE REALTIME
 -- ============================================================================
 
 -- Habilitar realtime para mensajes (chat en vivo)
@@ -855,3 +934,26 @@ ALTER PUBLICATION supabase_realtime ADD TABLE messages;
 
 -- Habilitar realtime para matches (notificación instantánea de match)
 ALTER PUBLICATION supabase_realtime ADD TABLE matches;
+
+-- ============================================================================
+-- 15. CRON JOBS — Reseteo de likes y superlikes
+-- ============================================================================
+-- Requiere la extensión pg_cron habilitada en Supabase.
+-- Ejecutar estos comandos manualmente en el SQL Editor de Supabase
+-- ya que pg_cron no se puede crear en una migración estándar.
+--
+-- CREATE EXTENSION IF NOT EXISTS pg_cron;
+--
+-- -- Resetear contador de likes cada 12 horas (00:00 y 12:00 UTC)
+-- SELECT cron.schedule(
+--   'reset-likes-counter',
+--   '0 0,12 * * *',
+--   $$UPDATE user_stats SET swipes_today = 0$$
+-- );
+--
+-- -- Resetear contador de superlikes cada 24 horas (00:00 UTC)
+-- SELECT cron.schedule(
+--   'reset-superlikes-counter',
+--   '0 0 * * *',
+--   $$UPDATE user_stats SET superlikes_today = 0$$
+-- );

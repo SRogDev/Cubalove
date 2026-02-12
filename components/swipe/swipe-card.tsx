@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { MapPin, Briefcase } from "lucide-react";
+import { MapPin, Briefcase, Crown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { UserProfile } from "@/lib/types";
 import { getAge } from "@/lib/mock-data";
 import { formatDistanceLabel } from "@/lib/hooks/use-geolocation";
@@ -9,10 +10,11 @@ import { formatDistanceLabel } from "@/lib/hooks/use-geolocation";
 interface SwipeCardProps {
   profile: UserProfile;
   distanceKm?: number | null;
+  isVip?: boolean;
   onTapProfile: () => void;
 }
 
-export const SwipeCard = ({ profile, distanceKm, onTapProfile }: SwipeCardProps) => {
+export const SwipeCard = ({ profile, distanceKm, isVip, onTapProfile }: SwipeCardProps) => {
   const [photoIndex, setPhotoIndex] = useState(0);
   const age = getAge(profile.date_of_birth);
   const photos = profile.photos;
@@ -34,7 +36,10 @@ export const SwipeCard = ({ profile, distanceKm, onTapProfile }: SwipeCardProps)
 
   return (
     <div
-      className="relative w-full aspect-[2/3] rounded-2xl overflow-hidden bg-muted shadow-xl select-none"
+      className={cn(
+        "relative w-full aspect-[2/3] rounded-2xl overflow-hidden bg-muted shadow-xl select-none",
+        isVip && "ring-2 ring-yellow-400/60 shadow-[0_0_15px_rgba(250,204,21,0.3)]",
+      )}
       style={{ touchAction: "none" }}
     >
       {/* Photo */}
@@ -74,6 +79,14 @@ export const SwipeCard = ({ profile, distanceKm, onTapProfile }: SwipeCardProps)
               }`}
             />
           ))}
+        </div>
+      )}
+
+      {/* VIP badge */}
+      {isVip && (
+        <div className="absolute top-3 right-3 z-10 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-yellow-400 to-amber-500 px-2.5 py-1 text-xs font-bold text-white shadow-md">
+          <Crown size={12} />
+          VIP
         </div>
       )}
 

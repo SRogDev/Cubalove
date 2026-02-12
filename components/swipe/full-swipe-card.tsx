@@ -10,10 +10,13 @@ import {
   Briefcase,
   MessageSquareQuote,
   Sparkles,
+  Flag,
+  Crown,
 } from "lucide-react";
 import type { UserProfile } from "@/lib/types";
 import { getAge } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { ReportDialog } from "@/components/profile/report-dialog";
 
 interface FullSwipeCardProps {
   profile: UserProfile;
@@ -21,6 +24,7 @@ interface FullSwipeCardProps {
   onClose: () => void;
   onLike?: () => void;
   onSuperlike?: () => void;
+  isVip?: boolean;
 }
 
 export const FullSwipeCard = ({
@@ -29,8 +33,10 @@ export const FullSwipeCard = ({
   onClose,
   onLike,
   onSuperlike,
+  isVip,
 }: FullSwipeCardProps) => {
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [showReport, setShowReport] = useState(false);
   const age = getAge(profile.date_of_birth);
   const photos = profile.photos;
 
@@ -67,19 +73,30 @@ export const FullSwipeCard = ({
               <ArrowLeft size={20} aria-hidden="true" />
             </button>
 
-            {onLike && (
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  onLike();
-                  onClose();
-                }}
-                className="flex h-10 w-10 items-center justify-center rounded-full gradient-primary text-white shadow-md shadow-primary/20 transition-transform hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                aria-label="Like"
+                onClick={() => setShowReport(true)}
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/80 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="Reportar usuario"
               >
-                <Heart size={18} fill="currentColor" aria-hidden="true" />
+                <Flag size={16} aria-hidden="true" />
               </button>
-            )}
+
+              {onLike && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onLike();
+                    onClose();
+                  }}
+                  className="flex h-10 w-10 items-center justify-center rounded-full gradient-primary text-white shadow-md shadow-primary/20 transition-transform hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  aria-label="Like"
+                >
+                  <Heart size={18} fill="currentColor" aria-hidden="true" />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Galería de fotos */}
@@ -138,6 +155,12 @@ export const FullSwipeCard = ({
                 <span className="text-2xl font-light text-muted-foreground">
                   {age}
                 </span>
+                {isVip && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-yellow-400 to-amber-500 px-2.5 py-0.5 text-xs font-bold text-white shadow-sm">
+                    <Crown size={12} />
+                    VIP
+                  </span>
+                )}
               </div>
 
               {profile.location && (
@@ -259,6 +282,14 @@ export const FullSwipeCard = ({
           )}
         </motion.div>
       )}
+
+      {/* Report dialog */}
+      <ReportDialog
+        targetUserId={profile.user_id}
+        targetName={profile.display_name}
+        open={showReport}
+        onClose={() => setShowReport(false)}
+      />
     </AnimatePresence>
   );
 };

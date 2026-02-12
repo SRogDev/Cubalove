@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
+export const dynamic = "force-static";
+export const revalidate = 86400; // 24 hours
+
 export const metadata = {
   title: "Términos de Uso — Empatando",
   description: "Términos y condiciones de uso de Empatando",

@@ -12,14 +12,17 @@ function isPublicRoute(pathname: string): boolean {
 }
 
 export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
-    request,
-  });
-
   // If the env vars are not set, skip proxy check
   if (!hasEnvVars) {
-    return supabaseResponse;
+    return NextResponse.next({ request });
   }
+
+  // Track cookies that Supabase needs to set on the response
+  let pendingCookies: Array<{
+    name: string;
+    value: string;
+    options: Record<string, unknown>;
+  }> = [];
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,12 +36,7 @@ export async function updateSession(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value),
           );
-          supabaseResponse = NextResponse.next({
-            request,
-          });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options),
-          );
+          pendingCookies = cookiesToSet;
         },
       },
     },
@@ -50,9 +48,26 @@ export async function updateSession(request: NextRequest) {
   const user = data?.claims;
   const pathname = request.nextUrl.pathname;
 
+  // Helper to build final response with cookies + optional custom request headers
+  const buildResponse = (customHeaders?: Record<string, string>) => {
+    const requestHeaders = new Headers(request.headers);
+    if (customHeaders) {
+      for (const [key, value] of Object.entries(customHeaders)) {
+        requestHeaders.set(key, value);
+      }
+    }
+    const response = NextResponse.next({
+      request: { headers: requestHeaders },
+    });
+    pendingCookies.forEach(({ name, value, options }) =>
+      response.cookies.set(name, value, options),
+    );
+    return response;
+  };
+
   // Public routes — allow without auth
   if (isPublicRoute(pathname)) {
-    return supabaseResponse;
+    return buildResponse();
   }
 
   // No user on protected route — redirect to login
@@ -77,6 +92,19 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  // IMPORTANT: You *must* return the supabaseResponse object as it is.
-  return supabaseResponse;
+  // Centralized subscription check — available to all authenticated routes
+  // via x-user-id and x-subscription-plan request headers
+  const { data: subscription } = await supabase
+    .from("user_subscriptions")
+    .select("plan, status")
+    .eq("user_id", user.sub)
+    .eq("status", "active")
+    .single();
+
+  const plan = subscription?.plan || "free";
+
+  return buildResponse({
+    "x-user-id": user.sub as string,
+    "x-subscription-plan": plan,
+  });
 }

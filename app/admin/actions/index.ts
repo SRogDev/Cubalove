@@ -180,3 +180,60 @@ export async function reactivateUser(userId: string) {
   revalidatePath("/admin/moderation");
   return { success: true, message: "Usuario reactivado" };
 }
+
+// ===== MODERATION: Obtener reportes de un usuario =====
+export async function getReportsForUser(reportedUserId: string) {
+  const { supabase } = await verifyAdmin();
+
+  const { data: reports, error } = await supabase
+    .from("reports")
+    .select("id, reporter_id, reason, details, status, created_at, reviewed_at")
+    .eq("reported_id", reportedUserId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return { error: "Error al obtener reportes: " + error.message };
+  }
+
+  // Fetch reporter names in parallel
+  const reporterIds = [...new Set(reports.map((r) => r.reporter_id))];
+  const { data: reporters } = await supabase
+    .from("users")
+    .select("user_id, display_name")
+    .in("user_id", reporterIds);
+
+  const reporterMap = new Map(
+    reporters?.map((r) => [r.user_id, r.display_name]) ?? []
+  );
+
+  return {
+    reports: reports.map((r) => ({
+      ...r,
+      reporter_name: reporterMap.get(r.reporter_id) ?? "Desconocido",
+    })),
+  };
+}
+
+// ===== MODERATION: Cambiar estado de reporte =====
+export async function updateReportStatus(
+  reportId: string,
+  status: "reviewed" | "action_taken" | "dismissed"
+) {
+  const { supabase, userId } = await verifyAdmin();
+
+  const { error } = await supabase
+    .from("reports")
+    .update({
+      status,
+      reviewed_by: userId,
+      reviewed_at: new Date().toISOString(),
+    })
+    .eq("id", reportId);
+
+  if (error) {
+    return { error: "Error al actualizar reporte: " + error.message };
+  }
+
+  revalidatePath("/admin/moderation");
+  return { success: true };
+}
