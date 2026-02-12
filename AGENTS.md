@@ -87,7 +87,7 @@ app/(app)/chat/[matchId]/page.tsx
 **Rol**: Gestión de perfiles de usuario y algoritmo de descubrimiento.
 **Responsabilidades**:
 - Editor de perfil (fotos, bio, intereses, información)
-- Upload y gestión de hasta 9 fotos de perfil
+- Upload y gestión de hasta 6 fotos de perfil
 - Algoritmo de descubrimiento (cola de perfiles)
 - Filtros: edad, distancia, género
 - Geolocalización del usuario
@@ -117,28 +117,32 @@ lib/hooks/use-geolocation.ts
 ### Agent: Auth & Security Engineer
 **Rol**: Autenticación, autorización y seguridad de la plataforma.
 **Responsabilidades**:
-- Flujo de registro con verificación de email
-- Login con email/password y OAuth (Google)
-- Verificación de edad (18+)
-- Row Level Security policies en Supabase
+- Google OAuth como único método de login (no email/password)
+- Verificación de edad (18+) en onboarding
+- Row Level Security policies en Supabase (ver `database.sql`)
 - Sistema de reportes y moderación
 - Bloqueo de usuarios
 - Rate limiting
 
 **Archivos clave**:
 ```
-app/(auth)/login/page.tsx
-app/(auth)/sign-up/page.tsx
-lib/supabase/middleware.ts
+app/auth/login/page.tsx
+app/auth/sign-up/page.tsx
+app/auth/callback/route.ts       — OAuth callback (code → session)
+components/login-form.tsx         — Botón "Continuar con Google"
 lib/supabase/server.ts
 lib/supabase/client.ts
+database.sql                      — RLS policies completas
 ```
 
 **Guías de implementación**:
 - Usar `@supabase/ssr` para manejo de sesiones con cookies
 - Middleware de Next.js para proteger rutas autenticadas
+- Google OAuth exclusivo: `signInWithOAuth({ provider: "google" })`
+- Callback en `/auth/callback` intercambia code por sesión
+- Trigger `on_auth_user_created` crea perfil automáticamente
 - RLS policies estrictas — un usuario nunca puede ver datos de swipes ajenos
-- Rate limit: máx 100 swipes/día para usuarios free
+- Rate limit: máx 100 swipes/día para usuarios free (vía `user_stats`)
 - Validar toda data con Zod en server actions
 - Sanitizar contenido de bio y mensajes (prevenir XSS)
 - Implementar soft-delete para cuentas eliminadas
@@ -164,8 +168,8 @@ lib/stripe/actions.ts
 - Tres planes: Free, Plus ($4.99/mes), Gold ($9.99/mes)
 - Stripe Checkout para flujo de pago (no Custom Elements)
 - Webhook handler robusto con verificación de firma
-- Sincronizar subscription status en tabla `subscriptions` de Supabase
-- Columna `premium_until` en profiles para verificación rápida
+- Sincronizar subscription status en tabla `user_subscriptions` de Supabase
+- Planes: `plus` y `vip` (ver tabla `user_subscriptions` en `database.sql`)
 - Features premium controladas por middleware/server-side checks
 
 ### Agent: PWA & Performance Engineer
@@ -191,9 +195,11 @@ lib/stripe/actions.ts
 
 ### 1. Registro y Onboarding
 ```
-Nuevo usuario → Signup (email) → Verificar email → Onboarding:
-  → Subir foto principal → Agregar nombre y edad → Escribir bio →
-  → Seleccionar intereses → Configurar preferencias (género, edad, distancia) →
+Nuevo usuario → "Continuar con Google" → Google OAuth → Callback →
+  → Trigger crea perfil en users → Onboarding:
+  → Subir foto principal → Agregar nombre y fecha de nacimiento →
+  → Seleccionar género y preferencia (show_me) → Escribir bio →
+  → Seleccionar intereses → Configurar ubicación (municipio, provincia) →
   → Activar geolocalización → ¡Listo para descubrir!
 ```
 
@@ -248,6 +254,21 @@ Usuario quiere features premium → Va a Premium →
 - Soporte de screen readers para la interfaz de chat
 - Contraste de colores WCAG AA mínimo
 - Focus management en modales y overlays
+
+### Base de Datos
+- Schema completo en `database.sql` — siempre mantener sincronizado
+- Tabla principal: `users` (NO `user_profiles`)
+- Al proponer cambios de DB, preguntar al usuario antes de implementar
+- Todas las tablas nuevas deben tener RLS habilitado
+- Usar triggers con `SECURITY DEFINER` para actualizaciones cross-table
+
+### Infraestructura
+- Ver `INFRA.md` para la arquitectura completa
+- Next.js self-hosted con `output: "standalone"` en Digital Ocean
+- Supabase self-hosted (PostgreSQL, Auth, Realtime, Storage)
+- Storage apunta a Digital Ocean Spaces (S3-compatible)
+- Cloudflare CDN con Image Resizing para optimización de imágenes
+- Dokploy para deploy automático desde GitHub
 
 ### Internacionalización (Futuro)
 - Textos en español por defecto

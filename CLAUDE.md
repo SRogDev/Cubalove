@@ -19,7 +19,7 @@ Debemos estudiar y replicar las siguientes características clave de Tinder:
 - **Chat Interface**: Mensajería en tiempo real similar a la de Tinder
 - **Profile Cards**: Fotos grandes, nombre, edad, bio corta, distancia
 - **Discovery Settings**: Filtros de edad, distancia, género
-- **Perfil Editable**: Fotos (hasta 9), bio, intereses, información básica
+- **Perfil Editable**: Fotos (hasta 6), bio, prompts, intereses, información básica
 
 ### Lógicas de Tinder a Implementar
 - **Matching bilateral**: Solo se crea match cuando ambos usuarios se dan like
@@ -39,12 +39,19 @@ Debemos estudiar y replicar las siguientes características clave de Tinder:
 - **Framer Motion** para animaciones de swipe y transiciones
 - **Lucide React** para iconografía
 
-### Backend (Supabase)
-- **Supabase Auth**: Login con email/password, OAuth (Google), magic links
-- **Supabase Database (PostgreSQL)**: Todas las tablas con Row Level Security (RLS)
-- **Supabase Storage**: Almacenamiento de fotos de perfil
+### Backend (Supabase — Self-hosted en Digital Ocean)
+- **Supabase Auth**: OAuth con Google exclusivamente (no email/password)
+- **Supabase Database (PostgreSQL + PostGIS)**: Todas las tablas con RLS
+- **Supabase Storage**: Apuntado a Digital Ocean Spaces (S3 compatible)
 - **Supabase Realtime**: Chat en tiempo real y notificaciones de match
 - **Supabase Edge Functions**: Lógica de servidor (matching algorithm, etc.)
+
+### Infraestructura
+- **Digital Ocean**: Droplet para Next.js + Supabase self-hosted
+- **Digital Ocean Spaces**: Storage S3-compatible para fotos y assets
+- **Cloudflare**: CDN, DNS, SSL, WAF, Image Resizing
+- **Dokploy**: Orquestación de deploy automático desde GitHub
+- Ver `INFRA.md` para detalles completos de la arquitectura
 
 ### Pagos
 - **Stripe** para suscripciones premium (Tinder Plus, Gold equivalentes)
@@ -53,16 +60,30 @@ Debemos estudiar y replicar las siguientes características clave de Tinder:
 
 ## Arquitectura de la Base de Datos
 
-### Tablas Principales
+### Tablas Principales (ver `database.sql` para schema completo)
 ```
-profiles        — Información de usuario (nombre, bio, fotos, preferencias, ubicación)
-swipes          — Registro de cada swipe (user_id, target_id, direction, created_at)
-matches         — Matches confirmados (user1_id, user2_id, created_at)
-messages        — Mensajes de chat (match_id, sender_id, content, created_at)
-subscriptions   — Estado de suscripción Stripe del usuario
-reports         — Reportes de usuarios problemáticos
-blocks          — Usuarios bloqueados
+users               — Perfil principal (display_name, date_of_birth, gender, show_me, bio)
+user_location       — Ubicación (city como municipio/provincia, lat/lng)
+user_photos         — Hasta 6 fotos de perfil con posición
+user_prompts        — Hasta 3 prompts personalizados (pregunta + respuesta)
+user_interests      — Tags/intereses del usuario
+user_stats          — Estadísticas (likes, superlikes, matches, swipes diarios)
+swipes              — Registro de swipes (like, nope, superlike)
+matches             — Matches confirmados (con constraint user1_id < user2_id)
+messages            — Mensajes de chat con indicador de leído
+user_subscriptions  — Suscripciones Stripe (plus, vip)
+chismes             — Contenido social tipo feed (con jsonb content)
+chisme_interactions — Interacciones con chismes (view, like, click, share)
+reports             — Reportes de usuarios
+blocks              — Bloqueos entre usuarios
 ```
+
+### Triggers Automáticos
+- `on_auth_user_created`: Crea registro en `users` + `user_stats` al registrarse
+- `create_match_on_mutual_like`: Crea match cuando ambos dan like/superlike
+- `update_stats_on_swipe`: Actualiza contadores de stats por cada swipe
+- `set_match_last_message`: Actualiza `last_message_at` en matches
+- `set_updated_at_*`: Auto-actualiza `updated_at` en tablas editables
 
 ### Row Level Security (RLS)
 - Cada usuario solo puede leer/escribir sus propios datos
@@ -113,13 +134,16 @@ pnpm lint         # Ejecutar ESLint
 ## Variables de Entorno
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=          # URL del proyecto Supabase
-NEXT_PUBLIC_SUPABASE_ANON_KEY=     # Clave pública de Supabase
-SUPABASE_SERVICE_ROLE_KEY=         # Clave de servicio (solo servidor)
-STRIPE_SECRET_KEY=                 # Clave secreta de Stripe
-STRIPE_WEBHOOK_SECRET=             # Secreto del webhook de Stripe
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY= # Clave pública de Stripe
-NEXT_PUBLIC_APP_URL=               # URL base de la app
+NEXT_PUBLIC_SUPABASE_URL=              # URL de Supabase self-hosted
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=  # Clave pública (anon key)
+SUPABASE_SERVICE_ROLE_KEY=             # Clave de servicio (solo servidor)
+NEXT_PUBLIC_APP_URL=                   # URL base de la app
+NEXT_PUBLIC_CDN_URL=                   # URL del CDN (Cloudflare)
+STRIPE_SECRET_KEY=                     # Clave secreta de Stripe
+STRIPE_WEBHOOK_SECRET=                 # Secreto del webhook de Stripe
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=    # Clave pública de Stripe
+DO_SPACES_KEY=                         # Digital Ocean Spaces access key
+DO_SPACES_SECRET=                      # Digital Ocean Spaces secret key
 ```
 
 ## Convenciones de Código
@@ -182,4 +206,23 @@ NEXT_PUBLIC_APP_URL=               # URL base de la app
 - Virtualización de listas largas (matches, mensajes)
 - Debounce en búsquedas y filtros
 - Compresión de imágenes antes de subir a Storage
-- CDN de Supabase para assets estáticos
+- Cloudflare Image Resizing para optimización de imágenes on-the-fly
+- CDN de Cloudflare para assets estáticos y fotos de perfil
+- `output: "standalone"` en Next.js para builds optimizados
+
+## Autenticación
+
+- **Google OAuth exclusivamente** — no se usa email/password
+- Flujo: Botón "Continuar con Google" → Supabase OAuth → Callback → Sesión
+- Ruta de callback: `/auth/callback` (intercambia code por sesión)
+- Al registrarse, trigger `on_auth_user_created` crea perfil en `users`
+- Sesiones gestionadas con cookies vía `@supabase/ssr`
+
+## Base de Datos
+
+- Schema completo en `database.sql` — ejecutar en Supabase SQL Editor
+- Tabla principal: `users` (NO `user_profiles` — siempre referenciar como `users`)
+- Todas las tablas tienen RLS habilitado con policies estrictas
+- Usar PostGIS para cálculos de geolocalización
+- Los stats se actualizan solo vía triggers (SECURITY DEFINER)
+- Cuando agregues tablas nuevas, actualizar `database.sql` y consultar al usuario
