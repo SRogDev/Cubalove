@@ -10,9 +10,12 @@ import {
 import type { UserProfile } from "@/lib/types";
 import { SwipeCard } from "./swipe-card";
 import { SwipeActions } from "./swipe-actions";
+import { calculateDistance } from "@/lib/services/discovery";
 
 interface SwipeStackProps {
   profiles: UserProfile[];
+  userLat?: number | null;
+  userLng?: number | null;
   onSwipe: (profile: UserProfile, direction: "like" | "nope" | "superlike") => void;
   onViewProfile: (profile: UserProfile) => void;
 }
@@ -20,7 +23,7 @@ interface SwipeStackProps {
 const SWIPE_THRESHOLD = 100;
 const SWIPE_UP_THRESHOLD = -80;
 
-export const SwipeStack = ({ profiles, onSwipe, onViewProfile }: SwipeStackProps) => {
+export const SwipeStack = ({ profiles, userLat, userLng, onSwipe, onViewProfile }: SwipeStackProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [exitDirection, setExitDirection] = useState<"left" | "right" | "up" | null>(null);
   const [lastSwiped, setLastSwiped] = useState<number | null>(null);
@@ -35,6 +38,22 @@ export const SwipeStack = ({ profiles, onSwipe, onViewProfile }: SwipeStackProps
 
   const currentProfile = profiles[currentIndex];
   const nextProfile = profiles[currentIndex + 1];
+
+  const getDistance = (profile: UserProfile): number | null => {
+    if (
+      userLat == null ||
+      userLng == null ||
+      !profile.location?.latitude ||
+      !profile.location?.longitude
+    )
+      return null;
+    return calculateDistance(
+      userLat,
+      userLng,
+      profile.location.latitude,
+      profile.location.longitude
+    );
+  };
 
   const handleSwipe = useCallback(
     (direction: "like" | "nope" | "superlike") => {
@@ -101,6 +120,7 @@ export const SwipeStack = ({ profiles, onSwipe, onViewProfile }: SwipeStackProps
             <div className="w-full max-w-sm scale-[0.95] opacity-50">
               <SwipeCard
                 profile={nextProfile}
+                distanceKm={getDistance(nextProfile)}
                 onTapProfile={() => {}}
               />
             </div>
@@ -163,6 +183,7 @@ export const SwipeStack = ({ profiles, onSwipe, onViewProfile }: SwipeStackProps
 
           <SwipeCard
             profile={currentProfile}
+            distanceKm={getDistance(currentProfile)}
             onTapProfile={() => onViewProfile(currentProfile)}
           />
         </motion.div>

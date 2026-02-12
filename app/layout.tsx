@@ -7,14 +7,14 @@ const defaultUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
-  title: "Dating Cuba — Conoce gente nueva",
+  title: "Empatando — Conoce gente nueva",
   description:
     "La app de citas para cubanos. Encuentra personas cerca de ti y haz match.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Dating Cuba",
+    title: "Empatando",
   },
 };
 

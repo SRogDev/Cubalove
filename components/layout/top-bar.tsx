@@ -11,7 +11,7 @@ export const TopBar = () => {
           href="/discover"
           className="font-display text-xl font-bold tracking-tight text-primary hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-md"
         >
-          Dating Cuba
+          Empatando
         </Link>
 
         <div className="flex items-center gap-1">

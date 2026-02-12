@@ -64,7 +64,7 @@ export default function AdminDashboardPage() {
       <div className="mb-6">
         <h2 className="font-display text-2xl font-bold">Dashboard</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Resumen general de Dating Cuba
+          Resumen general de Empatando
         </p>
       </div>
 

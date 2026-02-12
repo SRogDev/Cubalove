@@ -14,9 +14,11 @@ import {
   LogOut,
   Shield,
   Crown,
+  Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HelpModal } from "@/components/profile/help-modal";
+import { NotificationSettings } from "@/components/profile/notification-settings";
 import { MOCK_PROFILES, getAge } from "@/lib/mock-data";
 
 // Simulate current user as first mock profile
@@ -24,6 +26,7 @@ const currentUser = MOCK_PROFILES[0];
 
 export default function ProfilePage() {
   const [helpOpen, setHelpOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
   const age = getAge(currentUser.date_of_birth);
 
   return (
@@ -241,13 +244,24 @@ export default function ProfilePage() {
 
         <button
           type="button"
+          onClick={() => setNotifOpen(true)}
+          className="w-full flex items-center gap-3 rounded-2xl bg-muted/50 p-4 text-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Configurar notificaciones"
+        >
+          <Bell size={18} className="text-muted-foreground" aria-hidden="true" />
+          <span className="flex-1 text-left text-muted-foreground">Notificaciones</span>
+          <ChevronRight size={16} className="text-muted-foreground" aria-hidden="true" />
+        </button>
+
+        <Link
+          href="/privacidad"
           className="w-full flex items-center gap-3 rounded-2xl bg-muted/50 p-4 text-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Privacidad y seguridad"
         >
           <Shield size={18} className="text-muted-foreground" aria-hidden="true" />
           <span className="flex-1 text-left text-muted-foreground">Privacidad y seguridad</span>
           <ChevronRight size={16} className="text-muted-foreground" aria-hidden="true" />
-        </button>
+        </Link>
 
         <button
           type="button"
@@ -260,6 +274,7 @@ export default function ProfilePage() {
       </div>
 
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <NotificationSettings open={notifOpen} onClose={() => setNotifOpen(false)} />
     </div>
   );
 }

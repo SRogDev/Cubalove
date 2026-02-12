@@ -766,7 +766,88 @@ CREATE POLICY "users_update_admin"
   );
 
 -- ============================================================================
--- 12. SUPABASE REALTIME
+-- 12. PUSH NOTIFICATIONS & USER SETTINGS
+-- ============================================================================
+
+-- ----- Push subscriptions (Web Push API) -----
+CREATE TABLE push_subscriptions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  endpoint text NOT NULL UNIQUE,
+  p256dh text NOT NULL,
+  auth text NOT NULL,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX idx_push_subs_user ON push_subscriptions(user_id);
+
+ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "push_subs_select_own"
+  ON push_subscriptions FOR SELECT
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "push_subs_insert_own"
+  ON push_subscriptions FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "push_subs_delete_own"
+  ON push_subscriptions FOR DELETE
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+-- ----- Notification log (frequency limiting) -----
+CREATE TABLE notification_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  type text NOT NULL,
+  sent_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX idx_notification_log_user_time ON notification_log(user_id, sent_at DESC);
+
+ALTER TABLE notification_log ENABLE ROW LEVEL SECURITY;
+-- Solo accesible via service role (API routes)
+
+-- ----- User settings -----
+CREATE TABLE user_settings (
+  user_id uuid PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+  notifications_enabled boolean DEFAULT true,
+  notifications_matches boolean DEFAULT true,
+  notifications_messages boolean DEFAULT true,
+  notifications_chismes boolean DEFAULT true,
+  notifications_promotions boolean DEFAULT true,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "user_settings_select_own"
+  ON user_settings FOR SELECT
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "user_settings_insert_own"
+  ON user_settings FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "user_settings_update_own"
+  ON user_settings FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- Trigger updated_at
+CREATE TRIGGER set_updated_at_user_settings
+  BEFORE UPDATE ON user_settings
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- ============================================================================
+-- 13. SUPABASE REALTIME
 -- ============================================================================
 
 -- Habilitar realtime para mensajes (chat en vivo)

@@ -308,14 +308,14 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-border/50 py-8 px-6">
         <div className="max-w-lg mx-auto flex flex-col items-center gap-4 text-center">
-          <p className="font-display font-bold text-primary">Dating Cuba</p>
+          <p className="font-display font-bold text-primary">Empatando</p>
           <div className="flex gap-4 text-xs text-muted-foreground">
-            <a href="#" className="hover:text-foreground transition-colors">Términos</a>
-            <a href="#" className="hover:text-foreground transition-colors">Privacidad</a>
+            <a href="/terminos" className="hover:text-foreground transition-colors">Términos</a>
+            <a href="/privacidad" className="hover:text-foreground transition-colors">Privacidad</a>
             <a href="#" className="hover:text-foreground transition-colors">Contacto</a>
           </div>
           <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} Dating Cuba. Hecho con amor en Cuba.
+            &copy; {new Date().getFullYear()} Empatando. Hecho con amor en Cuba.
           </p>
         </div>
       </footer>

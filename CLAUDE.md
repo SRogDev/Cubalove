@@ -1,11 +1,13 @@
-# CLAUDE.md — Dating Cuba
+# CLAUDE.md — Empatando
 
 ## Proyecto
 
-**Dating Cuba** es una aplicación de citas diseñada específicamente para el mercado cubano.
+**Empatando** es una aplicación de citas diseñada específicamente para el mercado cubano.
 El producto se inspira directamente en **Tinder** — imitamos sus elementos de UI, flujos de
 interacción y lógicas de matching. El stack es **Next.js 16 (App Router)** + **Supabase**
 (auth, database, storage, realtime) + **Tailwind CSS** + **shadcn/ui**.
+
+Contacto: empatando@datingcuba.com
 
 ## Referencia Principal: Tinder
 
@@ -15,7 +17,7 @@ Debemos estudiar y replicar las siguientes características clave de Tinder:
 - **Card Stack**: Las tarjetas de perfil se apilan y se deslizan (swipe left/right)
 - **Swipe Gestures**: Soporte completo para gestos táctiles en móvil y drag en desktop
 - **Like / Nope / Super Like**: Los tres estados visuales al interactuar con un perfil
-- **Match Screen**: La pantalla de "It's a Match!" con animación cuando hay match mutuo
+- **Match Screen**: La pantalla de "¡Empataste!" con animación cuando hay match mutuo
 - **Chat Interface**: Mensajería en tiempo real similar a la de Tinder
 - **Profile Cards**: Fotos grandes, nombre, edad, bio corta, distancia
 - **Discovery Settings**: Filtros de edad, distancia, género
@@ -27,7 +29,7 @@ Debemos estudiar y replicar las siguientes características clave de Tinder:
 - **Sistema de likes limitados**: Gestión de cuota diaria de swipes
 - **Boost/Super Like**: Funcionalidades premium
 - **Deshacer último swipe**: Feature premium
-- **Geolocalización**: Filtrado por proximidad
+- **Geolocalización**: Filtrado por proximidad con distancia tipo Tinder (km/metros)
 
 ## Stack Técnico
 
@@ -38,6 +40,7 @@ Debemos estudiar y replicar las siguientes características clave de Tinder:
 - **shadcn/ui** como sistema de componentes base
 - **Framer Motion** para animaciones de swipe y transiciones
 - **Lucide React** para iconografía
+- **geolib** para cálculos de distancia geográfica
 
 ### Backend (Supabase — Self-hosted en Digital Ocean)
 - **Supabase Auth**: OAuth con Google exclusivamente (no email/password)
@@ -54,15 +57,71 @@ Debemos estudiar y replicar las siguientes características clave de Tinder:
 - Ver `INFRA.md` para detalles completos de la arquitectura
 
 ### Pagos
-- **Stripe** para suscripciones premium (Tinder Plus, Gold equivalentes)
+- **Stripe** para suscripciones premium (Plus $2/mes, VIP $8/mes)
+- **CUP manual** vía WhatsApp para usuarios cubanos (Plus 1000 CUP, VIP 4000 CUP)
 - Stripe Checkout para flujo de pago
 - Stripe Webhooks para sincronizar estado de suscripción
+
+### Notificaciones
+- **Web Push** vía service worker para PWA
+- Librería `web-push` con VAPID keys para envío server-side
+- Tipos de notificación: Match, Re-engagement, NewChisme, Boost, Superlike
+- Frecuencia máxima: 1 notificación/hora (excepto match, que es inmediata)
+- Toggles por tipo en Settings del perfil
+
+## Arquitectura: Service Layer + Repository Pattern
+
+La app usa un patrón de capas para separar acceso a datos de lógica de negocio:
+
+### Repositories (`lib/repositories/`)
+Capa de acceso a datos. Cada archivo encapsula queries de Supabase para una entidad:
+```
+lib/repositories/
+  users.ts            — CRUD de perfiles, ubicación, fotos, prompts, intereses
+  swipes.ts           — Crear swipes, verificar swipes existentes
+  matches.ts          — Obtener matches, match individual
+  messages.ts         — Enviar mensajes, obtener historial
+  chismes.ts          — CRUD de chismes, interacciones
+  subscriptions.ts    — Suscripciones, pagos, precios CUP
+  push-subscriptions.ts — Suscripciones push, logs de notificación
+  index.ts            — Barrel export
+```
+
+**Convención**: Los repositories reciben un cliente Supabase como parámetro y retornan
+los datos directamente de la query. No contienen lógica de negocio.
+
+### Services (`lib/services/`)
+Capa de lógica de negocio. Orquestan repositories y aplican reglas:
+```
+lib/services/
+  discovery.ts        — Algoritmo de descubrimiento, cálculo de distancia
+  chismes.ts          — Feed de chismes, likes, publicación
+  notifications.ts    — Tipos de notificación, payloads, templates con emojis
+  index.ts            — Barrel export
+```
+
+**Convención**: Los services importan repositories y añaden lógica (validaciones,
+cálculos, transformaciones). Ejemplo: `discovery.ts` usa `calculateDistance()` de
+geolib para calcular distancia entre usuarios.
+
+### Cómo usar
+```typescript
+// En un Server Component o Server Action:
+import { UsersRepository } from "@/lib/repositories";
+import { DiscoveryService } from "@/lib/services";
+
+// Repository: acceso directo a datos
+const profile = await UsersRepository.getProfile(supabase, userId);
+
+// Service: lógica de negocio
+const distance = DiscoveryService.calculateDistance(lat1, lng1, lat2, lng2);
+```
 
 ## Arquitectura de la Base de Datos
 
 ### Tablas Principales (ver `database.sql` para schema completo)
 ```
-users               — Perfil principal (display_name, date_of_birth, gender, show_me, bio)
+users               — Perfil principal (display_name, date_of_birth, gender, show_me, bio, role, status, phone)
 user_location       — Ubicación (city como municipio/provincia, lat/lng)
 user_photos         — Hasta 6 fotos de perfil con posición
 user_prompts        — Hasta 3 prompts personalizados (pregunta + respuesta)
@@ -71,11 +130,18 @@ user_stats          — Estadísticas (likes, superlikes, matches, swipes diario
 swipes              — Registro de swipes (like, nope, superlike)
 matches             — Matches confirmados (con constraint user1_id < user2_id)
 messages            — Mensajes de chat con indicador de leído
-user_subscriptions  — Suscripciones Stripe (plus, vip)
+user_subscriptions  — Suscripciones (plus, vip) con payment_method (stripe/cup)
 chismes             — Contenido social tipo feed (con jsonb content)
 chisme_interactions — Interacciones con chismes (view, like, click, share)
 reports             — Reportes de usuarios
 blocks              — Bloqueos entre usuarios
+stripe_customers    — Mapeo user_id → stripe_customer_id
+stripe_subscriptions — Suscripciones Stripe detalladas
+stripe_payments     — Historial de pagos Stripe
+cup_prices          — Precios en CUP por plan (administrable)
+push_subscriptions  — Suscripciones push por usuario (endpoint, keys)
+notification_log    — Log de notificaciones enviadas (para rate limiting)
+user_settings       — Configuración de usuario (notificaciones por tipo)
 ```
 
 ### Triggers Automáticos
@@ -89,37 +155,56 @@ blocks              — Bloqueos entre usuarios
 - Cada usuario solo puede leer/escribir sus propios datos
 - Los mensajes solo son visibles para los participantes del match
 - Los swipes son privados — un usuario nunca ve quién le dio like (excepto premium)
+- Admin actions verifican `role = 'admin'` en la tabla `users`
 - Las policies deben ser estrictas y testeadas
 
 ## Estructura de Carpetas
 
 ```
 app/
-  (auth)/                 — Páginas de autenticación (login, signup, forgot-password)
+  (auth)/                 — Páginas de autenticación (login)
   (app)/                  — Layout principal de la app autenticada
     discover/             — Pantalla principal de swipe (estilo Tinder)
     matches/              — Lista de matches
     chat/[matchId]/       — Conversación individual
-    profile/              — Perfil propio (editar)
+    chismes/              — Feed de chismes
+    profile/              — Perfil propio (editar) + Settings (notificaciones)
     profile/[userId]/     — Ver perfil de otro usuario
-    settings/             — Configuración y preferencias
-    premium/              — Planes de suscripción
+    premium/              — Planes de suscripción (Stripe + CUP)
+  admin/                  — Panel de administración
+    recharges/            — Recargas manuales CUP
+    ads/                  — Publicar chismes
+    analytics/            — Insights
+    moderation/           — Moderación de usuarios
   api/
     webhooks/stripe/      — Webhook de Stripe
+    notifications/
+      subscribe/          — POST/DELETE suscripción push
+      send/               — POST enviar notificación (server-to-server)
+  terminos/               — Términos de uso
+  privacidad/             — Política de privacidad
 components/
   ui/                     — Componentes shadcn/ui
   swipe/                  — SwipeCard, SwipeStack, SwipeActions
   chat/                   — ChatBubble, ChatInput, ChatList
-  profile/                — ProfileCard, ProfileEditor, PhotoUploader
+  profile/                — ProfileCard, ProfileEditor, PhotoUploader, NotificationSettings
   match/                  — MatchScreen, MatchList
-  layout/                 — Navbar, BottomNav, Sidebar
+  chismes/                — ChismeCard, ChismeList
+  layout/                 — TopBar, BottomNav
+  landing/                — PWAInstallModal
+  shared/                 — AttentionUser (suspended/blocked)
 lib/
-  supabase/               — Clientes de Supabase (server, client, middleware)
-  stripe/                 — Configuración de Stripe
+  supabase/               — Clientes de Supabase (server, client, proxy)
+  stripe/                 — Configuración de Stripe (config, actions)
+  repositories/           — Capa de acceso a datos (queries Supabase)
+  services/               — Capa de lógica de negocio
+  hooks/                  — Custom hooks (useSwipe, useChat, useGeolocation, usePushNotifications)
   utils/                  — Utilidades generales
-  hooks/                  — Custom hooks (useSwipe, useChat, useGeolocation)
   constants/              — Constantes de la app
   types/                  — Tipos TypeScript globales
+public/
+  sw.js                   — Service Worker (push notifications + caching)
+  manifest.json           — PWA manifest
 ```
 
 ## Comandos
@@ -142,8 +227,13 @@ NEXT_PUBLIC_CDN_URL=                   # URL del CDN (Cloudflare)
 STRIPE_SECRET_KEY=                     # Clave secreta de Stripe
 STRIPE_WEBHOOK_SECRET=                 # Secreto del webhook de Stripe
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=    # Clave pública de Stripe
+STRIPE_PRICE_PLUS_ID=                  # Price ID de plan Plus en Stripe
+STRIPE_PRICE_VIP_ID=                   # Price ID de plan VIP en Stripe
 DO_SPACES_KEY=                         # Digital Ocean Spaces access key
 DO_SPACES_SECRET=                      # Digital Ocean Spaces secret key
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=          # VAPID public key para push notifications
+VAPID_PRIVATE_KEY=                     # VAPID private key (solo servidor)
+INTERNAL_API_SECRET=                   # Secret para llamadas server-to-server
 ```
 
 ## Convenciones de Código
@@ -162,12 +252,14 @@ DO_SPACES_SECRET=                      # Digital Ocean Spaces secret key
 - Componentes pequeños y reutilizables — no más de 150 líneas por componente
 - Custom hooks para lógica de estado compleja
 - Evitar `useEffect` cuando sea posible — preferir server-side data fetching
+- En Next.js 16, `proxy.ts` reemplaza a `middleware.ts`
 
 ### Supabase
 - Siempre usar el cliente correcto: `createClient()` en servidor, `createBrowserClient()` en cliente
 - Todas las queries deben respetar RLS — nunca usar service role en el cliente
 - Tipar todas las queries con los tipos generados de Supabase
 - Manejar errores de Supabase explícitamente — no ignorar `error` del response
+- Acceso a datos vía repositories (`lib/repositories/`), lógica vía services (`lib/services/`)
 
 ### Estilos
 - Tailwind utility-first — evitar CSS custom
@@ -188,6 +280,7 @@ DO_SPACES_SECRET=                      # Digital Ocean Spaces secret key
 - **Offline-first donde sea posible**: Service workers para funcionalidad básica offline
 - **PWA**: La app debe ser instalable como PWA para funcionar sin app stores
 - **Idioma**: Interfaz en español por defecto
+- **Pagos CUP**: Soporte de pagos manuales en CUP vía WhatsApp para usuarios sin acceso a Stripe
 
 ## Seguridad
 
@@ -198,6 +291,8 @@ DO_SPACES_SECRET=                      # Digital Ocean Spaces secret key
 - Verificación de edad (18+) en el registro
 - Sistema de reportes y moderación de contenido
 - Bloqueo de usuarios como medida de seguridad
+- Admin actions verifican `role = 'admin'` antes de ejecutar
+- API de notificaciones protegida con `INTERNAL_API_SECRET`
 
 ## Performance
 
@@ -209,6 +304,7 @@ DO_SPACES_SECRET=                      # Digital Ocean Spaces secret key
 - Cloudflare Image Resizing para optimización de imágenes on-the-fly
 - CDN de Cloudflare para assets estáticos y fotos de perfil
 - `output: "standalone"` en Next.js para builds optimizados
+- Service Worker con cache-first para assets estáticos
 
 ## Autenticación
 
@@ -217,6 +313,8 @@ DO_SPACES_SECRET=                      # Digital Ocean Spaces secret key
 - Ruta de callback: `/auth/callback` (intercambia code por sesión)
 - Al registrarse, trigger `on_auth_user_created` crea perfil en `users`
 - Sesiones gestionadas con cookies vía `@supabase/ssr`
+- `proxy.ts` protege rutas: redirige a `/auth/login` si no hay sesión
+- Rutas admin requieren `role = 'admin'` en la tabla `users`
 
 ## Base de Datos
 

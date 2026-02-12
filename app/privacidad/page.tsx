@@ -2,8 +2,8 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 export const metadata = {
-  title: "Política de Privacidad — Dating Cuba",
-  description: "Política de privacidad y protección de datos de Dating Cuba",
+  title: "Política de Privacidad — Empatando",
+  description: "Política de privacidad y protección de datos de Empatando",
 };
 
 export default function PrivacidadPage() {
@@ -31,7 +31,7 @@ export default function PrivacidadPage() {
         <div className="prose prose-sm max-w-none space-y-6 text-foreground/90 [&_h2]:font-display [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mt-8 [&_h2]:mb-3 [&_h3]:font-display [&_h3]:font-semibold [&_h3]:mt-6 [&_h3]:mb-2 [&_p]:leading-relaxed [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:space-y-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:space-y-1">
 
           <p>
-            En <strong>Dating Cuba</strong> nos tomamos tu privacidad en serio. Esta
+            En <strong>Empatando</strong> nos tomamos tu privacidad en serio. Esta
             Política de Privacidad explica qué información recopilamos, cómo la usamos,
             con quién la compartimos y qué derechos tienes sobre tus datos. Léela
             tranquilamente — queremos que sepas exactamente cómo manejamos tu información.
@@ -85,7 +85,7 @@ export default function PrivacidadPage() {
           <h3>1.3 Información de pagos</h3>
           <p>
             Si adquieres una suscripción, los datos de pago son procesados directamente
-            por <strong>Stripe</strong>. Dating Cuba no almacena números de tarjeta ni
+            por <strong>Stripe</strong>. Empatando no almacena números de tarjeta ni
             datos financieros sensibles. Solo guardamos un identificador de referencia
             del pago, el monto y el estado de la transacción para tu historial.
           </p>
@@ -163,7 +163,7 @@ export default function PrivacidadPage() {
           </ul>
 
           <h2>5. Tus Derechos</h2>
-          <p>Como usuario de Dating Cuba, tienes derecho a:</p>
+          <p>Como usuario de Empatando, tienes derecho a:</p>
           <ul>
             <li>
               <strong>Acceder</strong> a la información personal que tenemos sobre ti.
@@ -184,12 +184,12 @@ export default function PrivacidadPage() {
           </ul>
           <p>
             Para ejercer estos derechos, contáctanos a través de nuestros canales
-            oficiales o escríbenos a <strong>contacto@datingcuba.com</strong>.
+            oficiales o escríbenos a <strong>empatando@datingcuba.com</strong>.
           </p>
 
           <h2>6. Cookies y Tecnologías Similares</h2>
           <p>
-            Dating Cuba utiliza cookies estrictamente necesarias para el funcionamiento
+            Empatando utiliza cookies estrictamente necesarias para el funcionamiento
             de la plataforma:
           </p>
           <ul>
@@ -226,7 +226,7 @@ export default function PrivacidadPage() {
 
           <h2>8. Menores de Edad</h2>
           <p>
-            Dating Cuba no está dirigido a menores de 18 años y no recopilamos
+            Empatando no está dirigido a menores de 18 años y no recopilamos
             conscientemente información de menores. Si descubrimos que un menor ha
             creado una cuenta, la eliminaremos inmediatamente junto con toda su
             información. Si conoces a un menor usando la plataforma, repórtalo
@@ -251,7 +251,7 @@ export default function PrivacidadPage() {
           </p>
           <ul>
             <li>
-              Email: <strong>contacto@datingcuba.com</strong>
+              Email: <strong>empatando@datingcuba.com</strong>
             </li>
             <li>A través de nuestros canales oficiales en Instagram y Telegram.</li>
           </ul>

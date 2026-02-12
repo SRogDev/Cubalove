@@ -62,7 +62,7 @@ export const PWAInstallModal = ({
         style={{ overscrollBehavior: "contain" }}
       >
         <div className="flex items-center justify-between mb-6">
-          <h2 className="font-display text-xl font-bold">Instalar Dating Cuba</h2>
+          <h2 className="font-display text-xl font-bold">Instalar Empatando</h2>
           <button
             type="button"
             onClick={onClose}

@@ -4,10 +4,12 @@ import { useState, useCallback } from "react";
 import { SwipeStack } from "@/components/swipe/swipe-stack";
 import { FullSwipeCard } from "@/components/swipe/full-swipe-card";
 import { MatchScreen } from "@/components/match/match-screen";
+import { useGeolocation } from "@/lib/hooks/use-geolocation";
 import { MOCK_PROFILES } from "@/lib/mock-data";
 import type { UserProfile } from "@/lib/types";
 
 export default function DiscoverPage() {
+  const { latitude, longitude } = useGeolocation();
   const [viewingProfile, setViewingProfile] = useState<UserProfile | null>(null);
   const [matchedProfile, setMatchedProfile] = useState<UserProfile | null>(null);
 
@@ -25,6 +27,8 @@ export default function DiscoverPage() {
     <div className="h-[calc(100svh-var(--top-bar-height)-var(--bottom-nav-height))] flex flex-col">
       <SwipeStack
         profiles={MOCK_PROFILES}
+        userLat={latitude}
+        userLng={longitude}
         onSwipe={handleSwipe}
         onViewProfile={setViewingProfile}
       />

@@ -4,13 +4,15 @@ import { useState } from "react";
 import { MapPin, Briefcase } from "lucide-react";
 import type { UserProfile } from "@/lib/types";
 import { getAge } from "@/lib/mock-data";
+import { formatDistanceLabel } from "@/lib/hooks/use-geolocation";
 
 interface SwipeCardProps {
   profile: UserProfile;
+  distanceKm?: number | null;
   onTapProfile: () => void;
 }
 
-export const SwipeCard = ({ profile, onTapProfile }: SwipeCardProps) => {
+export const SwipeCard = ({ profile, distanceKm, onTapProfile }: SwipeCardProps) => {
   const [photoIndex, setPhotoIndex] = useState(0);
   const age = getAge(profile.date_of_birth);
   const photos = profile.photos;
@@ -95,10 +97,14 @@ export const SwipeCard = ({ profile, onTapProfile }: SwipeCardProps) => {
           <span className="text-xl font-light">{age}</span>
         </div>
 
-        {profile.location && (
+        {(profile.location || distanceKm != null) && (
           <div className="flex items-center gap-1 mt-1 text-sm text-white/80">
             <MapPin size={14} aria-hidden="true" />
-            <span className="truncate">{profile.location.city}</span>
+            <span className="truncate">
+              {distanceKm != null
+                ? `${formatDistanceLabel(distanceKm)}${profile.location ? ` · ${profile.location.city}` : ""}`
+                : profile.location?.city}
+            </span>
           </div>
         )}
 

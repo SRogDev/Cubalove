@@ -46,7 +46,7 @@ export default function PremiumPage() {
   const handleCupPayment = (plan: SubscriptionPlan) => {
     const price = MOCK_CUP_PRICES[plan];
     const message = encodeURIComponent(
-      `Hola! Quiero suscribirme al plan ${plan.toUpperCase()} (${price} CUP) en Dating Cuba.`
+      `Hola! Quiero suscribirme al plan ${plan.toUpperCase()} (${price} CUP) en Empatando.`
     );
     window.open(
       `https://wa.me/${WHATSAPP_ADMIN_NUMBER}?text=${message}`,
