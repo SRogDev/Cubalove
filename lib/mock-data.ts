@@ -9,6 +9,8 @@ export const MOCK_PROFILES: UserProfile[] = [
     show_me: "hombres",
     bio: "Amo el café cubano y los atardeceres en el Malecón. Busco alguien para aventuras y buena conversa.",
     work_study: "CUJAE",
+    role: "user",
+    status: "active",
     last_active: new Date().toISOString(),
     photos: [
       { id: "p1", url: "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=600&h=900&fit=crop", position: 1 },
@@ -32,6 +34,8 @@ export const MOCK_PROFILES: UserProfile[] = [
     show_me: "mujeres",
     bio: "Músico de día, chef de noche. Hago la mejor pizza de La Habana (o eso dicen mis amigos).",
     work_study: "Músico",
+    role: "user",
+    status: "active",
     last_active: new Date().toISOString(),
     photos: [
       { id: "p5", url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&h=900&fit=crop", position: 1 },
@@ -54,6 +58,8 @@ export const MOCK_PROFILES: UserProfile[] = [
     show_me: "hombres",
     bio: "Fotógrafa amateur. Me encuentras en cualquier azotea de La Habana buscando el ángulo perfecto.",
     work_study: "Universidad de La Habana",
+    role: "user",
+    status: "active",
     last_active: new Date().toISOString(),
     photos: [
       { id: "p8", url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&h=900&fit=crop", position: 1 },
@@ -74,6 +80,8 @@ export const MOCK_PROFILES: UserProfile[] = [
     show_me: "mujeres",
     bio: "Ingeniero de software. Cuando no estoy codeando, estoy en el gym o haciendo snorkel en Varadero.",
     work_study: "Freelancer IT",
+    role: "user",
+    status: "active",
     last_active: new Date().toISOString(),
     photos: [
       { id: "p10", url: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=600&h=900&fit=crop", position: 1 },
@@ -98,6 +106,8 @@ export const MOCK_PROFILES: UserProfile[] = [
     show_me: "ambos",
     bio: "Bailarina de salsa casino. Si no puedes seguirme el paso en la pista, al menos intenta en la conversación.",
     work_study: "Escuela de Artes",
+    role: "user",
+    status: "active",
     last_active: new Date().toISOString(),
     photos: [
       { id: "p14", url: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=600&h=900&fit=crop", position: 1 },

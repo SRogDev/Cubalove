@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Flame, Star, MessageCircleHeart, User } from "lucide-react";
+import { Flame, Newspaper, MessageCircleHeart, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -12,10 +12,9 @@ const NAV_ITEMS = [
     icon: Flame,
   },
   {
-    href: "/premium",
-    label: "Premium",
-    icon: Star,
-    premiumOnly: true,
+    href: "/chismes",
+    label: "Chismes",
+    icon: Newspaper,
   },
   {
     href: "/matches",

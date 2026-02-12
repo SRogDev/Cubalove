@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   Settings,
   HelpCircle,
@@ -228,15 +229,15 @@ export default function ProfilePage() {
 
       {/* Quick links */}
       <div className="px-4 space-y-2 mb-6">
-        <button
-          type="button"
+        <Link
+          href="/premium"
           className="w-full flex items-center gap-3 rounded-2xl bg-gold/5 border border-gold/20 p-4 text-sm font-medium text-gold transition-colors hover:bg-gold/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Ver planes premium"
         >
           <Crown size={18} aria-hidden="true" />
-          <span className="flex-1 text-left">Hazte Premium</span>
+          <span className="flex-1 text-left">Mejorar</span>
           <ChevronRight size={16} aria-hidden="true" />
-        </button>
+        </Link>
 
         <button
           type="button"

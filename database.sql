@@ -24,6 +24,10 @@ CREATE TABLE users (
   show_me text NOT NULL CHECK (show_me IN ('hombres', 'mujeres', 'ambos')),
   bio text CHECK (char_length(bio) <= 300),
   work_study text,
+  phone text,
+  role text NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+  status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'blocked')),
+  suspended_until timestamptz,
   last_active timestamptz DEFAULT now(),
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
@@ -154,6 +158,7 @@ CREATE TABLE user_subscriptions (
   user_id uuid NOT NULL UNIQUE REFERENCES users(user_id) ON DELETE CASCADE,
   plan text NOT NULL CHECK (plan IN ('plus', 'vip')),
   status text NOT NULL CHECK (status IN ('active', 'inactive', 'canceled')),
+  payment_method text NOT NULL DEFAULT 'stripe' CHECK (payment_method IN ('stripe', 'cup_manual')),
   stripe_customer_id text,
   stripe_subscription_id text,
   current_period_start timestamptz,
@@ -630,7 +635,138 @@ CREATE POLICY "blocks_delete_own"
   USING (auth.uid() = blocker_id);
 
 -- ============================================================================
--- 10. SUPABASE REALTIME
+-- 10. STRIPE (Tablas financieras — separadas de user_subscriptions)
+-- ============================================================================
+
+-- ----- Mapeo usuario → cliente de Stripe -----
+CREATE TABLE stripe_customers (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL UNIQUE REFERENCES users(user_id) ON DELETE CASCADE,
+  stripe_customer_id text NOT NULL UNIQUE,
+  created_at timestamptz DEFAULT now()
+);
+
+-- ----- Suscripciones de Stripe (tracking financiero) -----
+CREATE TABLE stripe_subscriptions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  stripe_subscription_id text NOT NULL UNIQUE,
+  stripe_customer_id text NOT NULL,
+  stripe_price_id text,
+  status text NOT NULL CHECK (status IN ('active', 'past_due', 'canceled', 'incomplete', 'trialing', 'unpaid')),
+  current_period_start timestamptz,
+  current_period_end timestamptz,
+  cancel_at_period_end boolean DEFAULT false,
+  canceled_at timestamptz,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX idx_stripe_subs_user ON stripe_subscriptions(user_id);
+CREATE INDEX idx_stripe_subs_status ON stripe_subscriptions(status);
+
+-- ----- Historial de pagos de Stripe -----
+CREATE TABLE stripe_payments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  stripe_payment_intent_id text UNIQUE,
+  stripe_invoice_id text,
+  amount integer NOT NULL,        -- en centavos (ej: 200 = $2.00)
+  currency text NOT NULL DEFAULT 'usd',
+  status text NOT NULL CHECK (status IN ('succeeded', 'failed', 'pending', 'refunded')),
+  description text,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX idx_stripe_payments_user ON stripe_payments(user_id);
+
+-- ----- Precios en CUP (gestionados por admin) -----
+CREATE TABLE cup_prices (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  plan text NOT NULL UNIQUE CHECK (plan IN ('plus', 'vip')),
+  price_cup integer NOT NULL,
+  updated_at timestamptz DEFAULT now(),
+  updated_by uuid REFERENCES users(user_id)
+);
+
+-- Valores iniciales
+INSERT INTO cup_prices (plan, price_cup) VALUES ('plus', 1000);
+INSERT INTO cup_prices (plan, price_cup) VALUES ('vip', 4000);
+
+-- RLS para tablas de Stripe (solo service role puede escribir, usuarios leen sus propios)
+ALTER TABLE stripe_customers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE stripe_subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE stripe_payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cup_prices ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "stripe_customers_select_own"
+  ON stripe_customers FOR SELECT
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "stripe_subs_select_own"
+  ON stripe_subscriptions FOR SELECT
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "stripe_payments_select_own"
+  ON stripe_payments FOR SELECT
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+-- CUP prices — cualquier autenticado puede leer precios
+CREATE POLICY "cup_prices_select_all"
+  ON cup_prices FOR SELECT
+  TO authenticated
+  USING (true);
+
+-- CUP prices — solo admins pueden actualizar (via server action con service role)
+
+-- Trigger updated_at para stripe_subscriptions
+CREATE TRIGGER set_updated_at_stripe_subs
+  BEFORE UPDATE ON stripe_subscriptions
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- ============================================================================
+-- 11. ADMIN RLS POLICIES
+-- ============================================================================
+-- Los admins necesitan acceso ampliado para moderación y gestión.
+-- Estas policies permiten a los admins leer/actualizar datos necesarios.
+-- Las acciones de admin se ejecutan via server actions con service_role,
+-- pero estas policies cubren queries directas desde el cliente admin.
+
+-- Admins pueden ver todos los reportes
+CREATE POLICY "reports_select_admin"
+  ON reports FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM users WHERE user_id = auth.uid() AND role = 'admin')
+  );
+
+-- Admins pueden actualizar reportes (marcar como reviewed/resolved)
+CREATE POLICY "reports_update_admin"
+  ON reports FOR UPDATE
+  TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM users WHERE user_id = auth.uid() AND role = 'admin')
+  )
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM users WHERE user_id = auth.uid() AND role = 'admin')
+  );
+
+-- Admins pueden actualizar status de usuarios (suspend/block)
+CREATE POLICY "users_update_admin"
+  ON users FOR UPDATE
+  TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM users WHERE user_id = auth.uid() AND role = 'admin')
+  )
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM users WHERE user_id = auth.uid() AND role = 'admin')
+  );
+
+-- ============================================================================
+-- 12. SUPABASE REALTIME
 -- ============================================================================
 
 -- Habilitar realtime para mensajes (chat en vivo)

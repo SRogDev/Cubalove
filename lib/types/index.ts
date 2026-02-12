@@ -3,6 +3,9 @@ export type ShowMe = "hombres" | "mujeres" | "ambos";
 export type SwipeType = "like" | "nope" | "superlike";
 export type SubscriptionPlan = "plus" | "vip";
 export type SubscriptionStatus = "active" | "inactive" | "canceled";
+export type UserRole = "user" | "admin";
+export type UserStatus = "active" | "suspended" | "blocked";
+export type PaymentMethod = "stripe" | "cup_manual";
 
 export interface UserProfile {
   user_id: string;
@@ -12,12 +15,15 @@ export interface UserProfile {
   show_me: ShowMe;
   bio: string | null;
   work_study: string | null;
+  phone?: string;
+  role: UserRole;
+  status: UserStatus;
+  suspended_until?: string | null;
   last_active: string;
   photos: UserPhoto[];
   prompts: UserPrompt[];
   interests: string[];
   location: UserLocation | null;
-  phone?: string;
 }
 
 export interface UserPhoto {
@@ -78,4 +84,40 @@ export interface UserStats {
   matches_count: number;
   swipes_today: number;
   superlikes_today: number;
+}
+
+export interface UserSubscription {
+  id: string;
+  user_id: string;
+  plan: SubscriptionPlan;
+  status: SubscriptionStatus;
+  payment_method: PaymentMethod;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  created_at: string;
+}
+
+export interface CupPrice {
+  id: string;
+  plan: SubscriptionPlan;
+  price_cup: number;
+  updated_at: string;
+}
+
+export interface Report {
+  id: string;
+  reporter_id: string;
+  reported_id: string;
+  reason: string;
+  description: string | null;
+  status: "pending" | "reviewed" | "resolved";
+  created_at: string;
+}
+
+export interface AdminInsight {
+  id: string;
+  title: string;
+  description: string;
+  category: "matching" | "demographics" | "engagement" | "growth";
+  value: string;
 }
