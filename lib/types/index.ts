@@ -136,3 +136,67 @@ export interface AdminInsight {
   category: "matching" | "demographics" | "engagement" | "growth";
   value: string;
 }
+
+// ---------------------------------------------------------------------------
+// Discovery / Matching Algorithm Types
+// ---------------------------------------------------------------------------
+
+export interface DiscoveryCandidate {
+  user_id: string;
+  display_name: string;
+  date_of_birth: string;
+  gender: Gender;
+  bio: string | null;
+  work_study: string | null;
+  last_active: string;
+  latitude: number | null;
+  longitude: number | null;
+  city: string | null;
+  interests: string[];
+  photos: UserPhoto[];
+  prompts: UserPrompt[];
+  plan: SubscriptionPlan | null;
+  has_active_boost: boolean;
+  boost_multiplier: number;
+}
+
+export interface ScoredCandidate extends DiscoveryCandidate {
+  score: number;
+  score_breakdown: {
+    distance: number;
+    interests: number;
+    activity: number;
+    random: number;
+    boost_multiplier: number;
+    plan_multiplier: number;
+  };
+  distance_km: number | null;
+}
+
+export interface DiscoveryFilters {
+  showMe: ShowMe;
+  ageMin: number;
+  ageMax: number;
+  maxDistanceKm?: number;
+}
+
+export interface DiscoveryResponse {
+  profiles: UserProfile[];
+  remaining: number;
+  total_scored: number;
+  perf?: Record<string, unknown>;
+}
+
+export interface Boost {
+  id: string;
+  user_id: string;
+  started_at: string;
+  expires_at: string;
+  multiplier: number;
+}
+
+export interface PremiumInventory {
+  user_id: string;
+  boosts_available: number;
+  superlikes_available: number;
+}

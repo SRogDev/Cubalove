@@ -865,7 +865,59 @@ CREATE TRIGGER set_updated_at_user_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ============================================================================
--- 13. REWIND — Trigger para revertir stats al eliminar swipe
+-- 13. BOOSTS & PREMIUM INVENTORY
+-- ============================================================================
+
+-- ----- Inventario de boosts y superlikes disponibles -----
+CREATE TABLE user_premium_inventory (
+  user_id uuid PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+  boosts_available integer DEFAULT 0,
+  superlikes_available integer DEFAULT 0,
+  updated_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE user_premium_inventory ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "premium_inventory_select_own"
+  ON user_premium_inventory FOR SELECT
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+-- Updates via service role (purchase flow)
+
+CREATE TRIGGER set_updated_at_premium_inventory
+  BEFORE UPDATE ON user_premium_inventory
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- ----- Registro de boosts activados -----
+CREATE TABLE boosts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  started_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz NOT NULL,
+  multiplier decimal(3,1) NOT NULL DEFAULT 3.0,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX idx_boosts_active ON boosts(user_id, expires_at DESC);
+CREATE INDEX idx_boosts_expires ON boosts(expires_at) WHERE expires_at > now();
+
+ALTER TABLE boosts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "boosts_select_own"
+  ON boosts FOR SELECT
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+-- Insert via service role (activate boost action)
+
+-- ----- Índice para discovery: buscar boosts activos de otros usuarios -----
+-- Usado por el algoritmo de matching para priorizar usuarios con boost activo
+CREATE INDEX idx_boosts_active_lookup ON boosts(expires_at, user_id)
+  WHERE expires_at > now();
+
+-- ============================================================================
+-- 14. REWIND — Trigger para revertir stats al eliminar swipe
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION revert_swipe_stats()
@@ -926,7 +978,7 @@ CREATE TRIGGER revert_stats_on_swipe_delete
   FOR EACH ROW EXECUTE FUNCTION revert_swipe_stats();
 
 -- ============================================================================
--- 14. SUPABASE REALTIME
+-- 15. SUPABASE REALTIME
 -- ============================================================================
 
 -- Habilitar realtime para mensajes (chat en vivo)
@@ -936,7 +988,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE messages;
 ALTER PUBLICATION supabase_realtime ADD TABLE matches;
 
 -- ============================================================================
--- 15. CRON JOBS — Reseteo de likes y superlikes
+-- 16. CRON JOBS — Reseteo de likes y superlikes
 -- ============================================================================
 -- Requiere la extensión pg_cron habilitada en Supabase.
 -- Ejecutar estos comandos manualmente en el SQL Editor de Supabase

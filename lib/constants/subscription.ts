@@ -21,7 +21,8 @@ export const SUBSCRIPTION_LIMITS = {
     canRewind: true,
     canSeeLikes: true,
     hasVipBadge: true,
-    priorityBoost: 1.0, // 100% frequency score
+    priorityBoost: 1.0,
+    freeBoostsPerMonth: 1,
   },
 } as const;
 
