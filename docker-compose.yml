@@ -4,6 +4,7 @@
 #
 # Distribución de memoria:
 #   PostgreSQL:   1.5 GB (motor principal)
+#   PgBouncer:       64 MB (connection pooler — Medida 6)
 #   Redis:          512 MB (cache discovery queues, boosts, sessions)
 #   Next.js (Bun):  1 GB (app server)
 #   PostgREST:      128 MB (Supabase REST API)
@@ -80,7 +81,48 @@ services:
       retries: 5
 
   # ===========================================
-  # 2. REDIS — 512MB RAM
+  # 2. PGBOUNCER (Connection Pooler) — 64MB RAM
+  # ===========================================
+  pgbouncer:
+    image: edoburu/pgbouncer:1.22.0
+    container_name: pgbouncer
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.25'
+    environment:
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-postgres}
+      POOL_MODE: transaction
+      DEFAULT_POOL_SIZE: 25
+      MIN_POOL_SIZE: 5
+      RESERVE_POOL_SIZE: 5
+      RESERVE_POOL_TIMEOUT: 3
+      MAX_CLIENT_CONN: 200
+      MAX_DB_CONNECTIONS: 35
+      SERVER_IDLE_TIMEOUT: 30
+      SERVER_LIFETIME: 3600
+      SERVER_RESET_QUERY: DISCARD ALL
+      QUERY_WAIT_TIMEOUT: 30
+      LOG_CONNECTIONS: 0
+      LOG_DISCONNECTIONS: 0
+      LOG_POOLER_ERRORS: 1
+      STATS_PERIOD: 60
+      AUTH_TYPE: trust
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - empatando
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "localhost", "-p", "6432"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # 3. REDIS — 512MB RAM
   # ===========================================
   redis:
     image: redis:7-alpine
@@ -116,7 +158,7 @@ services:
       retries: 3
 
   # ===========================================
-  # 3. SUPABASE REST (PostgREST) — 128MB
+  # 4. SUPABASE REST (PostgREST) — 128MB
   # ===========================================
   rest:
     image: postgrest/postgrest:v12.0.1
@@ -128,20 +170,21 @@ services:
           memory: 128M
           cpus: '0.5'
     environment:
-      PGRST_DB_URI: postgres://authenticator:${PGRST_DB_PASS}@postgres:5432/${POSTGRES_DB:-postgres}
+      # Connects through PgBouncer (port 6432) for connection pooling
+      PGRST_DB_URI: postgres://authenticator:${PGRST_DB_PASS}@pgbouncer:6432/${POSTGRES_DB:-postgres}
       PGRST_DB_SCHEMA: public,storage
       PGRST_DB_ANON_ROLE: anon
       PGRST_JWT_SECRET: ${JWT_SECRET}
       PGRST_DB_POOL: 8
       PGRST_DB_POOL_ACQUISITION_TIMEOUT: 10
     depends_on:
-      postgres:
+      pgbouncer:
         condition: service_healthy
     networks:
       - empatando
 
   # ===========================================
-  # 4. SUPABASE AUTH (GoTrue) — 128MB
+  # 5. SUPABASE AUTH (GoTrue) — 128MB
   # ===========================================
   auth:
     image: supabase/gotrue:v2.158.0
@@ -175,7 +218,7 @@ services:
       - empatando
 
   # ===========================================
-  # 5. SUPABASE STORAGE — 128MB
+  # 6. SUPABASE STORAGE — 128MB
   # ===========================================
   storage:
     image: supabase/storage-api:v1.8.7
@@ -206,7 +249,7 @@ services:
       - empatando
 
   # ===========================================
-  # 6. SUPABASE REALTIME — 128MB
+  # 7. SUPABASE REALTIME — 128MB
   # ===========================================
   realtime:
     image: supabase/realtime:v2.29.2
@@ -238,7 +281,7 @@ services:
       - empatando
 
   # ===========================================
-  # 7. NEXT.JS APP (Bun runtime) — 1GB RAM
+  # 8. NEXT.JS APP (Bun runtime) — 1GB RAM
   # ===========================================
   nextjs:
     build:
@@ -294,7 +337,7 @@ services:
         max-file: "3"
 
   # ===========================================
-  # 8. NGINX (Reverse Proxy) — 128MB
+  # 9. NGINX (Reverse Proxy) — 128MB
   # ===========================================
   nginx:
     image: nginx:alpine

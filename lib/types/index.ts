@@ -70,11 +70,54 @@ export interface Chisme {
     type?: string;
     cta?: string;
     link?: string;
+    media_url?: string;
+    media_type?: "image" | "video" | "audio" | "document";
+    media_name?: string;
   };
   image_url: string | null;
   views: number;
   likes: number;
   clicks: number;
+  created_at: string;
+}
+
+// Couple Mode types
+export interface CoupleRoom {
+  id: string;
+  user1_id: string;
+  user2_id: string;
+  active: boolean;
+  started_at: string;
+  ended_at: string | null;
+}
+
+export interface CoupleVault {
+  id: string;
+  room_id: string;
+  favorite_song_url: string | null;
+  favorite_song_title: string | null;
+  favorite_song_artist: string | null;
+  photo_1_url: string | null;
+  photo_2_url: string | null;
+  photo_3_url: string | null;
+}
+
+export interface CoupleDiaryEntry {
+  id: string;
+  room_id: string;
+  author_id: string;
+  content: string;
+  entry_date: string;
+  created_at: string;
+}
+
+export interface CoupleRequest {
+  id: string;
+  requester_id: string;
+  target_phone: string;
+  target_name: string;
+  target_id: string | null;
+  status: "pending" | "accepted" | "rejected" | "expired";
   created_at: string;
 }
 

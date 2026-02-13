@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { Inter, Poppins } from "next/font/google";
 import { ThemeProvider } from "next-themes";
+import { PostHogTracker } from "@/components/shared/posthog-provider";
 import "./globals.css";
 
 const defaultUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -59,6 +61,9 @@ export default function RootLayout({
           defaultTheme="light"
           disableTransitionOnChange
         >
+          <Suspense fallback={null}>
+            <PostHogTracker />
+          </Suspense>
           {children}
         </ThemeProvider>
       </body>
