@@ -1,0 +1,174 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Dating Cuba — Rojo Cubano Theme */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+
+    --primary: 348 83% 47%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 10%;
+
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 29%;
+
+    --accent: 0 100% 71%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 4 90% 58%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 122 39% 49%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 45 100% 51%;
+    --warning-foreground: 0 0% 10%;
+
+    --info: 207 90% 54%;
+    --info-foreground: 0 0% 100%;
+
+    --gold: 51 100% 50%;
+    --gold-foreground: 0 0% 10%;
+
+    --coral: 0 100% 71%;
+
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 348 83% 47%;
+
+    --radius: 0.75rem;
+
+    --bottom-nav-height: 5rem;
+    --top-bar-height: 3.5rem;
+  }
+
+  .dark {
+    --background: 0 0% 5%;
+    --foreground: 0 0% 96%;
+
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 96%;
+
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 96%;
+
+    --primary: 348 83% 52%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 96%;
+
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 62%;
+
+    --accent: 0 100% 71%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 4 90% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 122 39% 42%;
+    --warning: 45 100% 45%;
+    --info: 207 90% 48%;
+    --gold: 51 100% 45%;
+
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    --ring: 348 83% 52%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Safe areas for PWA / notch devices */
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+}
+
+@layer utilities {
+  /* Swipe card gradient overlay */
+  .card-gradient {
+    background: linear-gradient(
+      to top,
+      hsl(0 0% 0% / 0.7) 0%,
+      hsl(0 0% 0% / 0.4) 30%,
+      transparent 60%
+    );
+  }
+
+  /* Primary gradient for buttons/accents */
+  .gradient-primary {
+    background: linear-gradient(
+      135deg,
+      hsl(348 83% 47%) 0%,
+      hsl(0 100% 71%) 100%
+    );
+  }
+
+  /* Gold gradient for premium features */
+  .gradient-gold {
+    background: linear-gradient(
+      135deg,
+      hsl(45 100% 51%) 0%,
+      hsl(35 100% 55%) 50%,
+      hsl(51 100% 50%) 100%
+    );
+  }
+
+  /* Hide scrollbar but keep scrollable */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Touch manipulation for interactive elements */
+  .touch-action-manipulation {
+    touch-action: manipulation;
+  }
+}
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
