@@ -5,3 +5,5 @@ export * as messagesRepo from "./messages";
 export * as chismesRepo from "./chismes";
 export * as subscriptionsRepo from "./subscriptions";
 export * as pushSubscriptionsRepo from "./push-subscriptions";
+export * as discoveryRepo from "./discovery";
+export * as couplesRepo from "./couples";

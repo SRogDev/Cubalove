@@ -1,7 +1,8 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { getDistance } from "geolib";
 import type { UserProfile, SwipeType, ShowMe } from "@/lib/types";
-import { MOCK_PROFILES } from "@/lib/mock-data";
+import { getCandidates, getExcludedIds } from "@/lib/repositories/discovery";
+import { scoreAndRankCandidates, candidateToProfile } from "@/lib/services/matching";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -22,81 +23,76 @@ export interface SwipeResult {
 }
 
 // ---------------------------------------------------------------------------
-// Discovery Queue
+// Discovery Queue (real implementation)
 // ---------------------------------------------------------------------------
 
 /**
- * Get profiles for the swipe queue.
+ * Get profiles for the swipe queue with full scoring algorithm.
  *
  * Business rules:
- *  1. Exclude the current user
- *  2. Exclude already-swiped profiles
- *  3. Filter by gender preference (showMe)
- *  4. Filter by age range
- *  5. Optionally filter by max distance
- *  6. Exclude blocked users (both directions)
- *  7. Only return active users
- *
- * TODO: Replace mock implementation with real Supabase queries once
- *       the discovery repository is built.
+ *  1. Exclude self, blocked users, swiped in last 30 days
+ *  2. Filter by gender preference, age range
+ *  3. Score by distance (40%), interests (30%), activity (20%), random (10%)
+ *  4. Apply plan and boost multipliers
+ *  5. Return top profiles sorted by score
  */
 export async function getDiscoveryQueue(
   supabase: SupabaseClient,
   userId: string,
   filters: DiscoveryFilters,
+  userLat?: number | null,
+  userLng?: number | null,
+  limit: number = 20,
 ): Promise<{ data: UserProfile[]; error: string | null }> {
   try {
-    // --- Fetch IDs to exclude (already swiped + blocked) ---
-    const [swipesRes, blocksGivenRes, blocksReceivedRes] = await Promise.all([
-      supabase
-        .from("swipes")
-        .select("target_id")
-        .eq("user_id", userId),
-      supabase
-        .from("blocks")
-        .select("blocked_id")
-        .eq("blocker_id", userId),
-      supabase
-        .from("blocks")
-        .select("blocker_id")
-        .eq("blocked_id", userId),
-    ]);
+    // Fetch IDs to exclude
+    const excludedIds = await getExcludedIds(supabase, userId);
 
-    const excludedIds = new Set<string>([
+    // Fetch candidates from DB
+    const { data: candidates, error } = await getCandidates(
+      supabase,
       userId,
-      ...(swipesRes.data ?? []).map((s) => s.target_id),
-      ...(blocksGivenRes.data ?? []).map((b) => b.blocked_id),
-      ...(blocksReceivedRes.data ?? []).map((b) => b.blocker_id),
-    ]);
+      {
+        showMe: filters.showMe,
+        ageMin: filters.ageMin,
+        ageMax: filters.ageMax,
+        maxDistanceKm: filters.maxDistanceKm,
+        userLat: userLat ?? undefined,
+        userLng: userLng ?? undefined,
+      },
+      excludedIds,
+      200,
+    );
 
-    // --- Mock: filter MOCK_PROFILES applying business rules ---
-    const genderMap: Record<ShowMe, string[]> = {
-      hombres: ["hombre"],
-      mujeres: ["mujer"],
-      ambos: ["hombre", "mujer", "otro"],
-    };
+    if (error) return { data: [], error };
 
-    const allowedGenders = genderMap[filters.showMe];
+    // Fetch user's interests for scoring
+    const { data: interestsData } = await supabase
+      .from("user_interests")
+      .select("interest")
+      .eq("user_id", userId);
+    const userInterests = (interestsData ?? []).map((i) => i.interest);
 
-    const now = new Date();
-    const filtered = MOCK_PROFILES.filter((profile) => {
-      if (excludedIds.has(profile.user_id)) return false;
-      if (profile.status !== "active") return false;
-      if (!allowedGenders.includes(profile.gender)) return false;
+    // Score and rank
+    const scored = scoreAndRankCandidates(
+      candidates,
+      userLat ?? null,
+      userLng ?? null,
+      userInterests,
+    );
 
-      // Age filter
-      const birth = new Date(profile.date_of_birth);
-      let age = now.getFullYear() - birth.getFullYear();
-      const monthDiff = now.getMonth() - birth.getMonth();
-      if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) {
-        age--;
-      }
-      if (age < filters.ageMin || age > filters.ageMax) return false;
+    // Apply max distance filter if set
+    let filtered = scored;
+    if (filters.maxDistanceKm) {
+      filtered = scored.filter(
+        (c) => c.distance_km === null || c.distance_km <= filters.maxDistanceKm!,
+      );
+    }
 
-      return true;
-    });
+    // Take top N and convert to UserProfile
+    const profiles = filtered.slice(0, limit).map(candidateToProfile);
 
-    return { data: filtered, error: null };
+    return { data: profiles, error: null };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error al obtener perfiles";
     return { data: [], error: message };

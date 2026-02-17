@@ -1,5 +1,17 @@
 import { createServerClient } from "@supabase/ssr";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+
+/**
+ * Service role client — bypasses RLS for server-to-server operations.
+ * Use ONLY in API routes, cron jobs, or admin actions. Never in client code.
+ */
+export async function createServiceClient() {
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+}
 
 /**
  * Especially important if using Fluid compute: Don't put this client in a

@@ -48,6 +48,32 @@ CREATE TABLE user_location (
 
 CREATE INDEX idx_user_location_coords ON user_location(latitude, longitude);
 
+-- PostGIS geometry column + GiST index for spatial queries (Medida 2)
+ALTER TABLE user_location ADD COLUMN geom geometry(Point, 4326);
+
+-- Auto-populate geom from lat/lng on insert/update
+CREATE OR REPLACE FUNCTION update_location_geom()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.latitude IS NOT NULL AND NEW.longitude IS NOT NULL THEN
+    NEW.geom := ST_SetSRID(ST_MakePoint(NEW.longitude, NEW.latitude), 4326);
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER set_location_geom
+  BEFORE INSERT OR UPDATE OF latitude, longitude ON user_location
+  FOR EACH ROW EXECUTE FUNCTION update_location_geom();
+
+-- GiST index — O(log n) spatial lookups instead of full table scan
+CREATE INDEX idx_user_location_geom ON user_location USING GIST (geom);
+
+-- Backfill existing rows (run once after creating column)
+UPDATE user_location
+SET geom = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)
+WHERE latitude IS NOT NULL AND longitude IS NOT NULL AND geom IS NULL;
+
 -- ----- Fotos de perfil (máx 6) -----
 CREATE TABLE user_photos (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -865,7 +891,59 @@ CREATE TRIGGER set_updated_at_user_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ============================================================================
--- 13. REWIND — Trigger para revertir stats al eliminar swipe
+-- 13. BOOSTS & PREMIUM INVENTORY
+-- ============================================================================
+
+-- ----- Inventario de boosts y superlikes disponibles -----
+CREATE TABLE user_premium_inventory (
+  user_id uuid PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+  boosts_available integer DEFAULT 0,
+  superlikes_available integer DEFAULT 0,
+  updated_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE user_premium_inventory ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "premium_inventory_select_own"
+  ON user_premium_inventory FOR SELECT
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+-- Updates via service role (purchase flow)
+
+CREATE TRIGGER set_updated_at_premium_inventory
+  BEFORE UPDATE ON user_premium_inventory
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- ----- Registro de boosts activados -----
+CREATE TABLE boosts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  started_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz NOT NULL,
+  multiplier decimal(3,1) NOT NULL DEFAULT 3.0,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX idx_boosts_active ON boosts(user_id, expires_at DESC);
+CREATE INDEX idx_boosts_expires ON boosts(expires_at) WHERE expires_at > now();
+
+ALTER TABLE boosts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "boosts_select_own"
+  ON boosts FOR SELECT
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+-- Insert via service role (activate boost action)
+
+-- ----- Índice para discovery: buscar boosts activos de otros usuarios -----
+-- Usado por el algoritmo de matching para priorizar usuarios con boost activo
+CREATE INDEX idx_boosts_active_lookup ON boosts(expires_at, user_id)
+  WHERE expires_at > now();
+
+-- ============================================================================
+-- 14. REWIND — Trigger para revertir stats al eliminar swipe
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION revert_swipe_stats()
@@ -926,7 +1004,7 @@ CREATE TRIGGER revert_stats_on_swipe_delete
   FOR EACH ROW EXECUTE FUNCTION revert_swipe_stats();
 
 -- ============================================================================
--- 14. SUPABASE REALTIME
+-- 15. SUPABASE REALTIME
 -- ============================================================================
 
 -- Habilitar realtime para mensajes (chat en vivo)
@@ -936,7 +1014,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE messages;
 ALTER PUBLICATION supabase_realtime ADD TABLE matches;
 
 -- ============================================================================
--- 15. CRON JOBS — Reseteo de likes y superlikes
+-- 16. CRON JOBS — Reseteo de likes y superlikes
 -- ============================================================================
 -- Requiere la extensión pg_cron habilitada en Supabase.
 -- Ejecutar estos comandos manualmente en el SQL Editor de Supabase
@@ -957,3 +1035,385 @@ ALTER PUBLICATION supabase_realtime ADD TABLE matches;
 --   '0 0 * * *',
 --   $$UPDATE user_stats SET superlikes_today = 0$$
 -- );
+
+-- ============================================================================
+-- 17. PARTICIONAMIENTO DE SWIPES (Medida 7)
+-- ============================================================================
+-- Con 50k MAU × ~50 swipes/día = 2.5M swipes/día, la tabla crece rápido.
+-- Particionar por mes mantiene las queries rápidas.
+--
+-- IMPORTANTE: Ejecutar esta migración DESPUÉS de crear la tabla swipes original.
+-- Esto renombra la tabla original, crea la particionada, y migra los datos.
+--
+-- Paso 1: Renombrar tabla original
+-- ALTER TABLE swipes RENAME TO swipes_old;
+--
+-- Paso 2: Crear tabla particionada
+-- CREATE TABLE swipes (
+--   id uuid DEFAULT gen_random_uuid(),
+--   user_id uuid NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+--   target_id uuid NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+--   type text NOT NULL CHECK (type IN ('like', 'nope', 'superlike')),
+--   created_at timestamptz DEFAULT now(),
+--   PRIMARY KEY (id, created_at),
+--   UNIQUE(user_id, target_id, created_at)
+-- ) PARTITION BY RANGE (created_at);
+--
+-- Paso 3: Crear particiones mensuales (automatizar con pg_cron)
+-- CREATE TABLE swipes_2026_01 PARTITION OF swipes
+--   FOR VALUES FROM ('2026-01-01') TO ('2026-02-01');
+-- CREATE TABLE swipes_2026_02 PARTITION OF swipes
+--   FOR VALUES FROM ('2026-02-01') TO ('2026-03-01');
+-- CREATE TABLE swipes_2026_03 PARTITION OF swipes
+--   FOR VALUES FROM ('2026-03-01') TO ('2026-04-01');
+-- ... (crear particiones por adelantado para los próximos 6 meses)
+--
+-- Paso 4: Migrar datos existentes
+-- INSERT INTO swipes SELECT * FROM swipes_old;
+--
+-- Paso 5: Re-crear índices en cada partición (se heredan automáticamente)
+-- CREATE INDEX ON swipes(user_id, created_at DESC);
+-- CREATE INDEX ON swipes(target_id, type);
+-- CREATE INDEX ON swipes(target_id, user_id, type) WHERE type IN ('like', 'superlike');
+--
+-- Paso 6: Re-crear triggers
+-- (Los triggers del paso 8 ya aplican a la tabla particionada)
+--
+-- Paso 7: Verificar y eliminar tabla vieja
+-- DROP TABLE swipes_old;
+--
+-- Cron para crear particiones automáticas cada mes:
+-- SELECT cron.schedule(
+--   'create-swipes-partition',
+--   '0 0 25 * *',  -- Día 25 de cada mes, crea partición del mes siguiente
+--   $$
+--   DO $part$
+--   DECLARE
+--     next_month date := date_trunc('month', now()) + interval '1 month';
+--     partition_name text := 'swipes_' || to_char(next_month, 'YYYY_MM');
+--     start_date text := to_char(next_month, 'YYYY-MM-DD');
+--     end_date text := to_char(next_month + interval '1 month', 'YYYY-MM-DD');
+--   BEGIN
+--     EXECUTE format(
+--       'CREATE TABLE IF NOT EXISTS %I PARTITION OF swipes FOR VALUES FROM (%L) TO (%L)',
+--       partition_name, start_date, end_date
+--     );
+--   END
+--   $part$;
+--   $$
+-- );
+
+-- ============================================================================
+-- 18. MODO PAREJA — Tablas de Couple Mode
+-- ============================================================================
+
+-- ----- Solicitudes de vinculación de pareja -----
+CREATE TABLE couple_requests (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  requester_id uuid NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  target_phone text NOT NULL,
+  target_name text NOT NULL,
+  target_id uuid REFERENCES users(user_id) ON DELETE CASCADE,
+  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'expired')),
+  created_at timestamptz DEFAULT now(),
+  responded_at timestamptz
+);
+
+CREATE INDEX idx_couple_requests_target ON couple_requests(target_id, status);
+CREATE INDEX idx_couple_requests_requester ON couple_requests(requester_id, status);
+
+ALTER TABLE couple_requests ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "couple_requests_select_own"
+  ON couple_requests FOR SELECT
+  TO authenticated
+  USING (auth.uid() = requester_id OR auth.uid() = target_id);
+
+CREATE POLICY "couple_requests_insert_own"
+  ON couple_requests FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = requester_id);
+
+CREATE POLICY "couple_requests_update_target"
+  ON couple_requests FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = target_id)
+  WITH CHECK (auth.uid() = target_id);
+
+-- ----- Room de pareja (relación activa) -----
+CREATE TABLE couple_rooms (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user1_id uuid NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  user2_id uuid NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  active boolean DEFAULT true,
+  started_at timestamptz DEFAULT now(),
+  ended_at timestamptz,
+  CHECK (user1_id < user2_id),
+  UNIQUE(user1_id, user2_id)
+);
+
+CREATE INDEX idx_couple_rooms_user1 ON couple_rooms(user1_id) WHERE active = true;
+CREATE INDEX idx_couple_rooms_user2 ON couple_rooms(user2_id) WHERE active = true;
+
+ALTER TABLE couple_rooms ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "couple_rooms_select_participant"
+  ON couple_rooms FOR SELECT
+  TO authenticated
+  USING (auth.uid() = user1_id OR auth.uid() = user2_id);
+
+CREATE POLICY "couple_rooms_update_participant"
+  ON couple_rooms FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = user1_id OR auth.uid() = user2_id)
+  WITH CHECK (auth.uid() = user1_id OR auth.uid() = user2_id);
+
+-- ----- Baúl de Amor (fotos + canción de pareja) -----
+CREATE TABLE couple_vault (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_id uuid NOT NULL UNIQUE REFERENCES couple_rooms(id) ON DELETE CASCADE,
+  favorite_song_url text,
+  favorite_song_title text,
+  favorite_song_artist text,
+  photo_1_url text,
+  photo_2_url text,
+  photo_3_url text,
+  updated_at timestamptz DEFAULT now(),
+  updated_by uuid REFERENCES users(user_id)
+);
+
+ALTER TABLE couple_vault ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "couple_vault_select_participant"
+  ON couple_vault FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM couple_rooms
+      WHERE couple_rooms.id = couple_vault.room_id
+        AND (couple_rooms.user1_id = auth.uid() OR couple_rooms.user2_id = auth.uid())
+    )
+  );
+
+CREATE POLICY "couple_vault_insert_participant"
+  ON couple_vault FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM couple_rooms
+      WHERE couple_rooms.id = room_id
+        AND (couple_rooms.user1_id = auth.uid() OR couple_rooms.user2_id = auth.uid())
+    )
+  );
+
+CREATE POLICY "couple_vault_update_participant"
+  ON couple_vault FOR UPDATE
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM couple_rooms
+      WHERE couple_rooms.id = couple_vault.room_id
+        AND (couple_rooms.user1_id = auth.uid() OR couple_rooms.user2_id = auth.uid())
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM couple_rooms
+      WHERE couple_rooms.id = couple_vault.room_id
+        AND (couple_rooms.user1_id = auth.uid() OR couple_rooms.user2_id = auth.uid())
+    )
+  );
+
+CREATE TRIGGER set_updated_at_couple_vault
+  BEFORE UPDATE ON couple_vault
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- ----- Diario de Amor (1 mensaje por usuario por día) -----
+CREATE TABLE couple_diary (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_id uuid NOT NULL REFERENCES couple_rooms(id) ON DELETE CASCADE,
+  author_id uuid NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  content text NOT NULL CHECK (char_length(content) <= 500),
+  entry_date date NOT NULL DEFAULT CURRENT_DATE,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(room_id, author_id, entry_date)
+);
+
+CREATE INDEX idx_couple_diary_room ON couple_diary(room_id, entry_date DESC);
+
+ALTER TABLE couple_diary ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "couple_diary_select_participant"
+  ON couple_diary FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM couple_rooms
+      WHERE couple_rooms.id = couple_diary.room_id
+        AND (couple_rooms.user1_id = auth.uid() OR couple_rooms.user2_id = auth.uid())
+    )
+  );
+
+CREATE POLICY "couple_diary_insert_participant"
+  ON couple_diary FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    auth.uid() = author_id
+    AND EXISTS (
+      SELECT 1 FROM couple_rooms
+      WHERE couple_rooms.id = room_id
+        AND (couple_rooms.user1_id = auth.uid() OR couple_rooms.user2_id = auth.uid())
+        AND active = true
+    )
+  );
+
+-- Trigger: auto-crear couple_vault al crear couple_room
+CREATE OR REPLACE FUNCTION create_couple_vault()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO couple_vault (room_id)
+  VALUES (NEW.id);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_couple_room_created
+  AFTER INSERT ON couple_rooms
+  FOR EACH ROW EXECUTE FUNCTION create_couple_vault();
+
+-- ============================================================================
+-- 19. STORAGE BUCKETS (Supabase Storage → DO Spaces)
+-- ============================================================================
+-- Estos buckets se crean via Supabase Dashboard o SQL.
+-- Políticas de acceso controladas aquí.
+
+-- Bucket: profile-photos (fotos de perfil de usuarios)
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'profile-photos',
+  'profile-photos',
+  true,
+  5242880,  -- 5 MB max
+  ARRAY['image/jpeg', 'image/png', 'image/webp']
+) ON CONFLICT (id) DO NOTHING;
+
+-- Bucket: chismes-media (imágenes, videos, audio, documentos para chismes)
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'chismes-media',
+  'chismes-media',
+  true,
+  52428800,  -- 50 MB max (videos)
+  ARRAY[
+    'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+    'video/mp4', 'video/webm', 'video/quicktime',
+    'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/wav',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ]
+) ON CONFLICT (id) DO NOTHING;
+
+-- Bucket: couple-vault (fotos y canciones de parejas)
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'couple-vault',
+  'couple-vault',
+  false,  -- privado: solo la pareja puede ver
+  20971520,  -- 20 MB max (canciones)
+  ARRAY[
+    'image/jpeg', 'image/png', 'image/webp',
+    'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/wav'
+  ]
+) ON CONFLICT (id) DO NOTHING;
+
+-- Storage policies: profile-photos
+CREATE POLICY "profile_photos_select_public"
+  ON storage.objects FOR SELECT
+  TO public
+  USING (bucket_id = 'profile-photos');
+
+CREATE POLICY "profile_photos_insert_own"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    bucket_id = 'profile-photos'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+CREATE POLICY "profile_photos_update_own"
+  ON storage.objects FOR UPDATE
+  TO authenticated
+  USING (
+    bucket_id = 'profile-photos'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+CREATE POLICY "profile_photos_delete_own"
+  ON storage.objects FOR DELETE
+  TO authenticated
+  USING (
+    bucket_id = 'profile-photos'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+-- Storage policies: chismes-media (solo admins pueden subir)
+CREATE POLICY "chismes_media_select_public"
+  ON storage.objects FOR SELECT
+  TO public
+  USING (bucket_id = 'chismes-media');
+
+CREATE POLICY "chismes_media_insert_admin"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    bucket_id = 'chismes-media'
+    AND EXISTS (SELECT 1 FROM users WHERE user_id = auth.uid() AND role = 'admin')
+  );
+
+CREATE POLICY "chismes_media_delete_admin"
+  ON storage.objects FOR DELETE
+  TO authenticated
+  USING (
+    bucket_id = 'chismes-media'
+    AND EXISTS (SELECT 1 FROM users WHERE user_id = auth.uid() AND role = 'admin')
+  );
+
+-- Storage policies: couple-vault (solo participantes de la pareja)
+CREATE POLICY "couple_vault_storage_select"
+  ON storage.objects FOR SELECT
+  TO authenticated
+  USING (
+    bucket_id = 'couple-vault'
+    AND EXISTS (
+      SELECT 1 FROM couple_rooms
+      WHERE couple_rooms.id::text = (storage.foldername(name))[1]
+        AND (couple_rooms.user1_id = auth.uid() OR couple_rooms.user2_id = auth.uid())
+        AND couple_rooms.active = true
+    )
+  );
+
+CREATE POLICY "couple_vault_storage_insert"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    bucket_id = 'couple-vault'
+    AND EXISTS (
+      SELECT 1 FROM couple_rooms
+      WHERE couple_rooms.id::text = (storage.foldername(name))[1]
+        AND (couple_rooms.user1_id = auth.uid() OR couple_rooms.user2_id = auth.uid())
+        AND couple_rooms.active = true
+    )
+  );
+
+CREATE POLICY "couple_vault_storage_delete"
+  ON storage.objects FOR DELETE
+  TO authenticated
+  USING (
+    bucket_id = 'couple-vault'
+    AND EXISTS (
+      SELECT 1 FROM couple_rooms
+      WHERE couple_rooms.id::text = (storage.foldername(name))[1]
+        AND (couple_rooms.user1_id = auth.uid() OR couple_rooms.user2_id = auth.uid())
+    )
+  );

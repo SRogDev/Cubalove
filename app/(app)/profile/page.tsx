@@ -15,6 +15,7 @@ import {
   Shield,
   Crown,
   Bell,
+  Heart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HelpModal } from "@/components/profile/help-modal";
@@ -252,6 +253,16 @@ export default function ProfilePage() {
           <span className="flex-1 text-left text-muted-foreground">Notificaciones</span>
           <ChevronRight size={16} className="text-muted-foreground" aria-hidden="true" />
         </button>
+
+        <Link
+          href="/pareja"
+          className="w-full flex items-center gap-3 rounded-2xl bg-pink-50 dark:bg-pink-950/20 border border-pink-100 dark:border-pink-900/30 p-4 text-sm font-medium text-pink-700 dark:text-pink-300 transition-colors hover:bg-pink-100 dark:hover:bg-pink-950/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Modo pareja"
+        >
+          <Heart size={18} aria-hidden="true" />
+          <span className="flex-1 text-left">Modo Pareja</span>
+          <ChevronRight size={16} aria-hidden="true" />
+        </Link>
 
         <Link
           href="/privacidad"

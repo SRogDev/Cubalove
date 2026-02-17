@@ -1,0 +1,363 @@
+# =============================================================================
+# Empatando — Docker Compose (Producción Cuba)
+# Optimizado para VPS 4GB RAM
+#
+# Distribución de memoria:
+#   PostgreSQL:   1.5 GB (motor principal)
+#   PgBouncer:       64 MB (connection pooler — Medida 6)
+#   Redis:          512 MB (cache discovery queues, boosts, sessions)
+#   Next.js (Bun):  1 GB (app server)
+#   PostgREST:      128 MB (Supabase REST API)
+#   GoTrue:         128 MB (Supabase Auth)
+#   Storage API:    128 MB (Supabase Storage)
+#   Realtime:       128 MB (Supabase Realtime)
+#   Nginx:          128 MB (reverse proxy)
+#   ─────────────────────
+#   Total:        ~3.7 GB (dejar margen para OS ~300MB)
+# =============================================================================
+
+version: '3.8'
+
+networks:
+  empatando:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+services:
+  # ===========================================
+  # 1. POSTGRESQL (Supabase) — 1.5GB RAM
+  # ===========================================
+  postgres:
+    image: supabase/postgres:15.1.1.104
+    container_name: supabase-db
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+          cpus: '2'
+        reservations:
+          memory: 1G
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      # Tuning para 1.5GB RAM — optimizado para 50k MAU
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    command: >
+      postgres
+      -c shared_buffers=384MB
+      -c effective_cache_size=1GB
+      -c maintenance_work_mem=128MB
+      -c work_mem=4MB
+      -c max_connections=40
+      -c huge_pages=off
+      -c effective_io_concurrency=2
+      -c max_worker_processes=2
+      -c max_parallel_workers=2
+      -c max_parallel_workers_per_gather=1
+      -c random_page_cost=1.1
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c log_min_duration_statement=1000
+      -c shared_preload_libraries='pg_stat_statements'
+      -c pg_stat_statements.track=all
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - empatando
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ${POSTGRES_DB:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # 2. PGBOUNCER (Connection Pooler) — 64MB RAM
+  # ===========================================
+  pgbouncer:
+    image: edoburu/pgbouncer:1.22.0
+    container_name: pgbouncer
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.25'
+    environment:
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-postgres}
+      POOL_MODE: transaction
+      DEFAULT_POOL_SIZE: 25
+      MIN_POOL_SIZE: 5
+      RESERVE_POOL_SIZE: 5
+      RESERVE_POOL_TIMEOUT: 3
+      MAX_CLIENT_CONN: 200
+      MAX_DB_CONNECTIONS: 35
+      SERVER_IDLE_TIMEOUT: 30
+      SERVER_LIFETIME: 3600
+      SERVER_RESET_QUERY: DISCARD ALL
+      QUERY_WAIT_TIMEOUT: 30
+      LOG_CONNECTIONS: 0
+      LOG_DISCONNECTIONS: 0
+      LOG_POOLER_ERRORS: 1
+      STATS_PERIOD: 60
+      AUTH_TYPE: trust
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - empatando
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "localhost", "-p", "6432"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # 3. REDIS — 512MB RAM
+  # ===========================================
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+    command: >
+      redis-server
+      --maxmemory 400mb
+      --maxmemory-policy volatile-lru
+      --save ""
+      --appendonly no
+      --tcp-backlog 128
+      --maxclients 500
+      --timeout 300
+      --tcp-keepalive 60
+      --hz 10
+      --lfu-log-factor 10
+    volumes:
+      - redis_data:/data
+    networks:
+      - empatando
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ===========================================
+  # 4. SUPABASE REST (PostgREST) — 128MB
+  # ===========================================
+  rest:
+    image: postgrest/postgrest:v12.0.1
+    container_name: supabase-rest
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.5'
+    environment:
+      # Connects through PgBouncer (port 6432) for connection pooling
+      PGRST_DB_URI: postgres://authenticator:${PGRST_DB_PASS}@pgbouncer:6432/${POSTGRES_DB:-postgres}
+      PGRST_DB_SCHEMA: public,storage
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      PGRST_DB_POOL: 8
+      PGRST_DB_POOL_ACQUISITION_TIMEOUT: 10
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+    networks:
+      - empatando
+
+  # ===========================================
+  # 5. SUPABASE AUTH (GoTrue) — 128MB
+  # ===========================================
+  auth:
+    image: supabase/gotrue:v2.158.0
+    container_name: supabase-auth
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.5'
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://authenticator:${PGRST_DB_PASS}@postgres:5432/${POSTGRES_DB:-postgres}?search_path=auth
+      GOTRUE_SITE_URL: ${SITE_URL}
+      GOTRUE_URI_ALLOW_LIST: ${ADDITIONAL_REDIRECT_URLS:-}
+      GOTRUE_JWT_SECRET: ${JWT_SECRET}
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_EXTERNAL_GOOGLE_ENABLED: "true"
+      GOTRUE_EXTERNAL_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOTRUE_EXTERNAL_GOOGLE_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOTRUE_EXTERNAL_GOOGLE_REDIRECT_URI: ${SITE_URL}/auth/callback
+      GOTRUE_DISABLE_SIGNUP: "false"
+      GOTRUE_RATE_LIMIT_HEADER: X-Forwarded-For
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - empatando
+
+  # ===========================================
+  # 6. SUPABASE STORAGE — 128MB
+  # ===========================================
+  storage:
+    image: supabase/storage-api:v1.8.7
+    container_name: supabase-storage
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+    environment:
+      ANON_KEY: ${ANON_KEY}
+      SERVICE_KEY: ${SERVICE_KEY}
+      POSTGREST_URL: http://rest:3000
+      DATABASE_URL: postgres://authenticator:${PGRST_DB_PASS}@postgres:5432/${POSTGRES_DB:-postgres}
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      STORAGE_BACKEND: s3
+      GLOBAL_S3_BUCKET: ${DO_SPACES_BUCKET:-empatando}
+      GLOBAL_S3_ENDPOINT: ${DO_SPACES_ENDPOINT:-}
+      GLOBAL_S3_PROTOCOL: https
+      GLOBAL_S3_FORCE_PATH_STYLE: "true"
+      AWS_ACCESS_KEY_ID: ${DO_SPACES_KEY:-}
+      AWS_SECRET_ACCESS_KEY: ${DO_SPACES_SECRET:-}
+      REGION: ${DO_SPACES_REGION:-nyc3}
+    depends_on:
+      - rest
+    networks:
+      - empatando
+
+  # ===========================================
+  # 7. SUPABASE REALTIME — 128MB
+  # ===========================================
+  realtime:
+    image: supabase/realtime:v2.29.2
+    container_name: supabase-realtime
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-postgres}
+      DB_USER: supabase_admin
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_SSL: "false"
+      PORT: 4000
+      JWT_SECRET: ${JWT_SECRET}
+      REPLICATION_MODE: RLS
+      REPLICATION_POLL_INTERVAL: 100
+      SECURE_CHANNELS: "true"
+      SLOT_NAME: supabase_realtime_rls
+      TEMPORARY_SLOT: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - empatando
+
+  # ===========================================
+  # 8. NEXT.JS APP (Bun runtime) — 1GB RAM
+  # ===========================================
+  nextjs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: empatando-app
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+          cpus: '1.5'
+        reservations:
+          memory: 512M
+    environment:
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+      # Supabase internal URLs
+      - NEXT_PUBLIC_SUPABASE_URL=${PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SERVICE_KEY}
+      - SUPABASE_URL=http://rest:3000
+      - SUPABASE_AUTH_URL=http://auth:9999
+      # App
+      - NEXT_PUBLIC_APP_URL=${SITE_URL}
+      - NEXT_PUBLIC_CDN_URL=${CDN_URL:-}
+      # Redis
+      - REDIS_URL=redis://redis:6379
+      # Stripe
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+      - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${STRIPE_PUBLISHABLE_KEY:-}
+      - STRIPE_PRICE_PLUS_ID=${STRIPE_PRICE_PLUS_ID:-}
+      - STRIPE_PRICE_VIP_ID=${STRIPE_PRICE_VIP_ID:-}
+      # Push Notifications
+      - NEXT_PUBLIC_VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
+      - INTERNAL_API_SECRET=${INTERNAL_API_SECRET:-}
+      # Digital Ocean Spaces
+      - DO_SPACES_KEY=${DO_SPACES_KEY:-}
+      - DO_SPACES_SECRET=${DO_SPACES_SECRET:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - empatando
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ===========================================
+  # 9. NGINX (Reverse Proxy) — 128MB
+  # ===========================================
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - nextjs
+      - rest
+      - auth
+      - storage
+      - realtime
+    networks:
+      - empatando

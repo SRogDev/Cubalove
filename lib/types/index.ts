@@ -70,11 +70,54 @@ export interface Chisme {
     type?: string;
     cta?: string;
     link?: string;
+    media_url?: string;
+    media_type?: "image" | "video" | "audio" | "document";
+    media_name?: string;
   };
   image_url: string | null;
   views: number;
   likes: number;
   clicks: number;
+  created_at: string;
+}
+
+// Couple Mode types
+export interface CoupleRoom {
+  id: string;
+  user1_id: string;
+  user2_id: string;
+  active: boolean;
+  started_at: string;
+  ended_at: string | null;
+}
+
+export interface CoupleVault {
+  id: string;
+  room_id: string;
+  favorite_song_url: string | null;
+  favorite_song_title: string | null;
+  favorite_song_artist: string | null;
+  photo_1_url: string | null;
+  photo_2_url: string | null;
+  photo_3_url: string | null;
+}
+
+export interface CoupleDiaryEntry {
+  id: string;
+  room_id: string;
+  author_id: string;
+  content: string;
+  entry_date: string;
+  created_at: string;
+}
+
+export interface CoupleRequest {
+  id: string;
+  requester_id: string;
+  target_phone: string;
+  target_name: string;
+  target_id: string | null;
+  status: "pending" | "accepted" | "rejected" | "expired";
   created_at: string;
 }
 
@@ -135,4 +178,68 @@ export interface AdminInsight {
   description: string;
   category: "matching" | "demographics" | "engagement" | "growth";
   value: string;
+}
+
+// ---------------------------------------------------------------------------
+// Discovery / Matching Algorithm Types
+// ---------------------------------------------------------------------------
+
+export interface DiscoveryCandidate {
+  user_id: string;
+  display_name: string;
+  date_of_birth: string;
+  gender: Gender;
+  bio: string | null;
+  work_study: string | null;
+  last_active: string;
+  latitude: number | null;
+  longitude: number | null;
+  city: string | null;
+  interests: string[];
+  photos: UserPhoto[];
+  prompts: UserPrompt[];
+  plan: SubscriptionPlan | null;
+  has_active_boost: boolean;
+  boost_multiplier: number;
+}
+
+export interface ScoredCandidate extends DiscoveryCandidate {
+  score: number;
+  score_breakdown: {
+    distance: number;
+    interests: number;
+    activity: number;
+    random: number;
+    boost_multiplier: number;
+    plan_multiplier: number;
+  };
+  distance_km: number | null;
+}
+
+export interface DiscoveryFilters {
+  showMe: ShowMe;
+  ageMin: number;
+  ageMax: number;
+  maxDistanceKm?: number;
+}
+
+export interface DiscoveryResponse {
+  profiles: UserProfile[];
+  remaining: number;
+  total_scored: number;
+  perf?: Record<string, unknown>;
+}
+
+export interface Boost {
+  id: string;
+  user_id: string;
+  started_at: string;
+  expires_at: string;
+  multiplier: number;
+}
+
+export interface PremiumInventory {
+  user_id: string;
+  boosts_available: number;
+  superlikes_available: number;
 }
