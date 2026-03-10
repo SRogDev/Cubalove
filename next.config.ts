@@ -48,6 +48,20 @@ const nextConfig: NextConfig = {
             key: "Permissions-Policy",
             value: "geolocation=(self), camera=(), microphone=()",
           },
+          {
+            key: "Content-Security-Policy",
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://us.i.posthog.com",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: blob: https://*.digitaloceanspaces.com https://cdn.datingcuba.com https://supabase.datingcuba.com https://lh3.googleusercontent.com",
+              "font-src 'self'",
+              "connect-src 'self' https://supabase.datingcuba.com wss://supabase.datingcuba.com https://us.i.posthog.com",
+              "frame-ancestors 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+            ].join("; "),
+          },
         ],
       },
     ];

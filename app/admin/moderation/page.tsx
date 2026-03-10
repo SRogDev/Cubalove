@@ -1,16 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ShieldAlert, Users, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ModerationUserItem } from "./user-item";
-import { MOCK_PROFILES } from "@/lib/mock-data";
 
-// Mock data for moderation — augment profiles with report counts
-const MOCK_USERS_WITH_REPORTS = MOCK_PROFILES.map((profile, i) => ({
-  ...profile,
-  report_count: [3, 0, 7, 1, 0][i] ?? 0,
-}));
+interface UserWithReports {
+  user_id: string;
+  display_name: string;
+  gender: string;
+  status: string;
+  role: string;
+  created_at: string;
+  last_active: string;
+  report_count: number;
+}
 
 const TABS = [
   { id: "all", label: "Todos los usuarios", icon: Users },
@@ -21,13 +25,24 @@ type TabId = (typeof TABS)[number]["id"];
 
 export default function ModerationPage() {
   const [activeTab, setActiveTab] = useState<TabId>("all");
+  const [users, setUsers] = useState<UserWithReports[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const allUsers = MOCK_USERS_WITH_REPORTS;
-  const reportedUsers = [...MOCK_USERS_WITH_REPORTS]
+  useEffect(() => {
+    fetch("/api/admin/users")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.users) setUsers(data.users);
+      })
+      .catch(() => { })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const reportedUsers = [...users]
     .filter((u) => u.report_count > 0)
     .sort((a, b) => b.report_count - a.report_count);
 
-  const displayedUsers = activeTab === "all" ? allUsers : reportedUsers;
+  const displayedUsers = activeTab === "all" ? users : reportedUsers;
 
   return (
     <div>
@@ -67,7 +82,11 @@ export default function ModerationPage() {
       </div>
 
       {/* User list */}
-      {displayedUsers.length > 0 ? (
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      ) : displayedUsers.length > 0 ? (
         <div className="space-y-3">
           {displayedUsers.map((user) => (
             <ModerationUserItem

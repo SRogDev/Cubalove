@@ -1,12 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Flame, Sparkles } from "lucide-react";
 import { ChismeCard } from "@/components/chismes/chisme-card";
-import { MOCK_CHISMES } from "@/lib/mock-data";
+import { getChismes } from "@/app/actions/chismes";
+import type { Chisme } from "@/lib/types";
 
 export default function ChismesPage() {
-  const [chismes] = useState(MOCK_CHISMES);
+  const [chismes, setChismes] = useState<Chisme[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getChismes().then((result) => {
+      if (result.data) setChismes(result.data);
+      setLoading(false);
+    });
+  }, []);
 
   return (
     <div className="min-h-full pb-6">
@@ -38,16 +47,30 @@ export default function ChismesPage() {
 
       {/* Feed */}
       <div className="px-4 space-y-4">
-        {chismes.map((chisme, i) => (
-          <ChismeCard key={chisme.id} chisme={chisme} index={i} />
-        ))}
-
-        {/* End of feed */}
-        <div className="py-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            Eso es todo por ahora. Vuelve pronto para más chismes.
-          </p>
-        </div>
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          </div>
+        ) : chismes.length > 0 ? (
+          <>
+            {chismes.map((chisme, i) => (
+              <ChismeCard key={chisme.id} chisme={chisme} index={i} />
+            ))}
+            {/* End of feed */}
+            <div className="py-8 text-center">
+              <p className="text-sm text-muted-foreground">
+                Eso es todo por ahora. Vuelve pronto para más chismes.
+              </p>
+            </div>
+          </>
+        ) : (
+          <div className="py-16 text-center">
+            <p className="text-5xl mb-4">📰</p>
+            <p className="text-sm text-muted-foreground">
+              No hay chismes todavía. ¡Vuelve pronto!
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

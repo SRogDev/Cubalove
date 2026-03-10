@@ -1,6 +1,15 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import webpush from "web-push";
 
+// Initialize VAPID keys once at module load (idempotent)
+if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT ?? "mailto:admin@cubalove.app",
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY,
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -10,7 +19,8 @@ export type NotificationType =
   | "re_engagement"
   | "new_chisme"
   | "boost_ended"
-  | "superlike_received";
+  | "superlike_received"
+  | "new_recommendations";
 
 export interface NotificationPayload {
   title: string;
@@ -70,6 +80,12 @@ const NOTIFICATION_TEMPLATES: Record<
     body: "Entra a ver qui\u00E9n es",
     url: "/discover",
     tag: "superlike_received",
+  },
+  new_recommendations: {
+    title: "\u2728 Tus recomendados de la semana",
+    body: "Tenemos personas que podr\u00EDan gustarte. Entra a verlas en Recomendado",
+    url: "/discover",
+    tag: "new_recommendations",
   },
 };
 

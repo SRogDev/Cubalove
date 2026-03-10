@@ -15,10 +15,8 @@ import { CoupleLinkForm } from "@/components/couple/couple-link-form";
 import { DailyChallenge } from "@/components/couple/daily-challenge";
 import { LoveVault } from "@/components/couple/love-vault";
 import { LoveDiaryModal } from "@/components/couple/love-diary-modal";
-import { createBrowserClient } from "@/lib/supabase/client";
-
-// Mock current user ID — replace with real auth
-const MOCK_USER_ID = "mock-user-id";
+import { createClient } from "@/lib/supabase/client";
+import { useCurrentUser } from "@/lib/hooks/use-current-user";
 
 interface CoupleRoom {
   id: string;
@@ -54,9 +52,11 @@ export default function ParejaPage() {
   const [loading, setLoading] = useState(true);
   const [canWriteToday, setCanWriteToday] = useState(true);
 
-  const supabase = createBrowserClient();
+  const { userId } = useCurrentUser();
+  const supabase = createClient();
 
   const loadCoupleData = useCallback(async () => {
+    if (!userId) return;
     setLoading(true);
 
     // Fetch active couple room
@@ -74,7 +74,7 @@ export default function ParejaPage() {
           user_id, display_name, user_photos (url, position)
         )
       `)
-      .or(`user1_id.eq.${MOCK_USER_ID},user2_id.eq.${MOCK_USER_ID}`)
+      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
       .eq("active", true)
       .maybeSingle();
 
@@ -107,18 +107,18 @@ export default function ParejaPage() {
       const today = new Date().toISOString().split("T")[0];
       const wroteToday = entries?.some(
         (e) =>
-          (e as unknown as DiaryEntry).author.user_id === MOCK_USER_ID &&
+          (e as unknown as DiaryEntry).author.user_id === userId &&
           (e as unknown as DiaryEntry).entry_date === today,
       );
       setCanWriteToday(!wroteToday);
     }
 
     setLoading(false);
-  }, [supabase]);
+  }, [supabase, userId]);
 
   useEffect(() => {
-    loadCoupleData();
-  }, [loadCoupleData]);
+    if (userId) loadCoupleData();
+  }, [loadCoupleData, userId]);
 
   // Handler: send couple link request
   const handleSendRequest = async (phone: string, name: string) => {
@@ -137,7 +137,7 @@ export default function ParejaPage() {
     const { error: insertError } = await supabase
       .from("couple_requests")
       .insert({
-        requester_id: MOCK_USER_ID,
+        requester_id: userId!,
         target_id: targetUser.user_id,
         target_phone: phone,
         target_name: name,
@@ -170,7 +170,7 @@ export default function ParejaPage() {
     const field = `photo_${position}_url` as keyof VaultData;
     await supabase
       .from("couple_vault")
-      .update({ [field]: urlData.publicUrl, updated_by: MOCK_USER_ID })
+      .update({ [field]: urlData.publicUrl, updated_by: userId })
       .eq("room_id", room.id);
 
     setVault((v) => (v ? { ...v, [field]: urlData.publicUrl } : v));
@@ -196,18 +196,18 @@ export default function ParejaPage() {
         favorite_song_url: urlData.publicUrl,
         favorite_song_title: title,
         favorite_song_artist: artist,
-        updated_by: MOCK_USER_ID,
+        updated_by: userId,
       })
       .eq("room_id", room.id);
 
     setVault((v) =>
       v
         ? {
-            ...v,
-            favorite_song_url: urlData.publicUrl,
-            favorite_song_title: title,
-            favorite_song_artist: artist,
-          }
+          ...v,
+          favorite_song_url: urlData.publicUrl,
+          favorite_song_title: title,
+          favorite_song_artist: artist,
+        }
         : v,
     );
   };
@@ -218,7 +218,7 @@ export default function ParejaPage() {
     const field = `photo_${position}_url` as keyof VaultData;
     await supabase
       .from("couple_vault")
-      .update({ [field]: null, updated_by: MOCK_USER_ID })
+      .update({ [field]: null, updated_by: userId })
       .eq("room_id", room.id);
 
     setVault((v) => (v ? { ...v, [field]: null } : v));
@@ -233,18 +233,18 @@ export default function ParejaPage() {
         favorite_song_url: null,
         favorite_song_title: null,
         favorite_song_artist: null,
-        updated_by: MOCK_USER_ID,
+        updated_by: userId,
       })
       .eq("room_id", room.id);
 
     setVault((v) =>
       v
         ? {
-            ...v,
-            favorite_song_url: null,
-            favorite_song_title: null,
-            favorite_song_artist: null,
-          }
+          ...v,
+          favorite_song_url: null,
+          favorite_song_title: null,
+          favorite_song_artist: null,
+        }
         : v,
     );
   };
@@ -257,7 +257,7 @@ export default function ParejaPage() {
       .from("couple_diary")
       .insert({
         room_id: room.id,
-        author_id: MOCK_USER_ID,
+        author_id: userId!,
         content,
       })
       .select(`
@@ -284,7 +284,7 @@ export default function ParejaPage() {
   // Get partner info
   const getPartner = () => {
     if (!room) return null;
-    if (room.user1_id === MOCK_USER_ID) return room.partner2;
+    if (room.user1_id === userId) return room.partner2;
     return room.partner1;
   };
 
@@ -293,8 +293,8 @@ export default function ParejaPage() {
   // Days together
   const daysTogether = room
     ? Math.floor(
-        (Date.now() - new Date(room.started_at).getTime()) / (1000 * 60 * 60 * 24),
-      )
+      (Date.now() - new Date(room.started_at).getTime()) / (1000 * 60 * 60 * 24),
+    )
     : 0;
 
   return (
@@ -388,7 +388,7 @@ export default function ParejaPage() {
         open={diaryOpen}
         onClose={() => setDiaryOpen(false)}
         entries={diaryEntries}
-        currentUserId={MOCK_USER_ID}
+        currentUserId={userId ?? ""}
         canWriteToday={canWriteToday}
         onWriteEntry={handleWriteDiaryEntry}
       />

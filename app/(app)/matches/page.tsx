@@ -13,7 +13,7 @@ import { MatchListItem } from "@/components/match/match-list-item";
 import { FullSwipeCard } from "@/components/swipe/full-swipe-card";
 import { useMatches } from "@/lib/hooks/use-matches";
 import { useReceivedLikes } from "@/lib/hooks/use-received-likes";
-import { MOCK_MATCHES, getAge } from "@/lib/mock-data";
+import { getAge } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import type { Match } from "@/lib/types";
 
@@ -33,7 +33,7 @@ export default function MatchesPage() {
   const { matches: apiMatches, isLoading: matchesLoading } = useMatches();
   const { likes, requiresUpgrade, isLoading: likesLoading } = useReceivedLikes();
 
-  const matches = apiMatches.length > 0 ? apiMatches : MOCK_MATCHES;
+  const matches = apiMatches;
 
   const filteredMatches = matches.filter((m) =>
     m.user.display_name.toLowerCase().includes(searchQuery.toLowerCase()),

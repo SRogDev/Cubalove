@@ -14,7 +14,7 @@ import {
   Crown,
 } from "lucide-react";
 import type { UserProfile } from "@/lib/types";
-import { getAge } from "@/lib/mock-data";
+import { getAge } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { ReportDialog } from "@/components/profile/report-dialog";
 

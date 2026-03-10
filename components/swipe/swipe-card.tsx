@@ -4,7 +4,7 @@ import { useState } from "react";
 import { MapPin, Briefcase, Crown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { UserProfile } from "@/lib/types";
-import { getAge } from "@/lib/mock-data";
+import { getAge } from "@/lib/utils";
 import { formatDistanceLabel } from "@/lib/hooks/use-geolocation";
 
 interface SwipeCardProps {
@@ -74,9 +74,8 @@ export const SwipeCard = ({ profile, distanceKm, isVip, onTapProfile }: SwipeCar
           {photos.map((_, i) => (
             <div
               key={i}
-              className={`h-0.5 flex-1 rounded-full transition-colors ${
-                i === photoIndex ? "bg-white" : "bg-white/40"
-              }`}
+              className={`h-0.5 flex-1 rounded-full transition-colors ${i === photoIndex ? "bg-white" : "bg-white/40"
+                }`}
             />
           ))}
         </div>

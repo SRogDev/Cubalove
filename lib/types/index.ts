@@ -5,7 +5,7 @@ export type SubscriptionPlan = "plus" | "vip";
 export type SubscriptionStatus = "active" | "inactive" | "canceled";
 export type UserRole = "user" | "admin";
 export type UserStatus = "active" | "suspended" | "blocked";
-export type PaymentMethod = "stripe" | "cup_manual";
+export type PaymentMethod = "cup_manual";
 export type ReportReason = "fake" | "inappropriate" | "harassment" | "minor" | "spam" | "other";
 export type ReportStatus = "pending" | "reviewed" | "action_taken" | "dismissed";
 
@@ -20,6 +20,7 @@ export interface UserProfile {
   phone?: string;
   role: UserRole;
   status: UserStatus;
+  onboarding_completed: boolean;
   suspended_until?: string | null;
   last_active: string;
   photos: UserPhoto[];
@@ -242,4 +243,49 @@ export interface PremiumInventory {
   user_id: string;
   boosts_available: number;
   superlikes_available: number;
+}
+
+// ---------------------------------------------------------------------------
+// AI Recommendation System
+// ---------------------------------------------------------------------------
+
+export type RecommendationStatus = "active" | "past";
+
+/** Raw row from the recommendations table */
+export interface Recommendation {
+  id: string;
+  user_a_id: string;
+  user_b_id: string;
+  score_a_to_b: number;     // cosine similarity A’s ideal → B’s profile (0–1)
+  score_b_to_a: number;     // cosine similarity B’s ideal → A’s profile (0–1)
+  compatibility_score: number; // (score_a_to_b + score_b_to_a) / 2
+  status: RecommendationStatus;
+  week_start: string;       // ISO date string (Monday)
+  created_at: string;
+}
+
+/** Profile enriched with the user’s directional compatibility score */
+export interface RecommendedProfile extends UserProfile {
+  /** Score “what this person wants → who you are” (0–1) */
+  score_toward_me: number;
+  /** Score “what you want → who this person is” (0–1) */
+  score_toward_them: number;
+  /** Average of both directions */
+  compatibility_score: number;
+}
+
+export interface RecommendationsResponse {
+  recommendations: RecommendedProfile[];
+  week_start: string | null;
+  next_refresh: string; // ISO date of next Monday
+  /** Whether the user has already written their ideal partner description */
+  has_ideal_description: boolean;
+}
+
+/** Payload stored in user_embeddings */
+export interface UserEmbedding {
+  user_id: string;
+  ideal_partner_description: string | null;
+  updated_at: string;
+  // Note: actual vectors are not returned to the client
 }

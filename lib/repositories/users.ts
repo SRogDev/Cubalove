@@ -52,12 +52,7 @@ export async function getById(supabase: SupabaseClient, userId: string) {
 export async function updateProfile(
   supabase: SupabaseClient,
   userId: string,
-  data: Partial<
-    Pick<
-      UserProfile,
-      "display_name" | "date_of_birth" | "gender" | "show_me" | "bio" | "work_study" | "phone"
-    >
-  >,
+  data: Record<string, unknown>,
 ) {
   return supabase
     .from("users")

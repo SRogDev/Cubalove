@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Chisme } from "@/lib/types";
-import { formatTimeAgo } from "@/lib/mock-data";
+import { formatTimeAgo } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 interface ChismeCardProps {

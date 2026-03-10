@@ -1,5 +1,3 @@
-"use client";
-
 import {
   Users,
   Heart,
@@ -8,57 +6,103 @@ import {
   CreditCard,
   UserCheck,
 } from "lucide-react";
+import { createServiceClient } from "@/lib/supabase/server";
 
-// Mock admin stats — se reemplazará con queries reales a Supabase
-const MOCK_STATS = {
-  total_users: 5_247,
-  active_users: 3_891,
-  total_matches: 2_403,
-  paid_users: 412,
-  total_revenue: 1_856,
-  conversion_rate: 7.85,
-};
+async function getAdminStats() {
+  const supabase = await createServiceClient();
 
-const STAT_CARDS = [
-  {
-    label: "Usuarios Totales",
-    value: MOCK_STATS.total_users.toLocaleString("es-CU"),
-    icon: Users,
-    color: "text-primary bg-primary/10",
-  },
-  {
-    label: "Usuarios Activos",
-    value: MOCK_STATS.active_users.toLocaleString("es-CU"),
-    icon: UserCheck,
-    color: "text-success bg-success/10",
-  },
-  {
-    label: "Matches Totales",
-    value: MOCK_STATS.total_matches.toLocaleString("es-CU"),
-    icon: Heart,
-    color: "text-coral bg-coral/10",
-  },
-  {
-    label: "Usuarios de Pago",
-    value: MOCK_STATS.paid_users.toLocaleString("es-CU"),
-    icon: CreditCard,
-    color: "text-gold bg-gold/10",
-  },
-  {
-    label: "Ingresos Totales",
-    value: `$${MOCK_STATS.total_revenue.toLocaleString("es-CU")}`,
-    icon: DollarSign,
-    color: "text-success bg-success/10",
-  },
-  {
-    label: "% Conversión Pago",
-    value: `${MOCK_STATS.conversion_rate}%`,
-    icon: TrendingUp,
-    color: "text-info bg-info/10",
-  },
-];
+  const [usersRes, activeRes, matchesRes, paidRes, revenueRes, reportsRes] =
+    await Promise.all([
+      supabase.from("users").select("user_id", { count: "exact", head: true }),
+      supabase
+        .from("users")
+        .select("user_id", { count: "exact", head: true })
+        .gte(
+          "last_active",
+          new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        ),
+      supabase.from("matches").select("id", { count: "exact", head: true }),
+      supabase
+        .from("user_subscriptions")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "active"),
+      supabase.from("user_subscriptions").select("plan").eq("status", "active"),
+      supabase
+        .from("reports")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending"),
+    ]);
 
-export default function AdminDashboardPage() {
+  const totalUsers = usersRes.count ?? 0;
+  const activeUsers = activeRes.count ?? 0;
+  const totalMatches = matchesRes.count ?? 0;
+  const paidUsers = paidRes.count ?? 0;
+
+  // Rough revenue estimation from active subscriptions
+  const plans = revenueRes.data ?? [];
+  const revenue = plans.reduce((sum, s) => {
+    if (s.plan === "plus") return sum + 2;
+    if (s.plan === "vip") return sum + 8;
+    return sum;
+  }, 0);
+
+  const conversionRate =
+    totalUsers > 0 ? ((paidUsers / totalUsers) * 100).toFixed(2) : "0";
+
+  const pendingReports = reportsRes.count ?? 0;
+
+  return {
+    totalUsers,
+    activeUsers,
+    totalMatches,
+    paidUsers,
+    revenue,
+    conversionRate,
+    pendingReports,
+  };
+}
+
+export default async function AdminDashboardPage() {
+  const stats = await getAdminStats();
+
+  const STAT_CARDS = [
+    {
+      label: "Usuarios Totales",
+      value: stats.totalUsers.toLocaleString("es-CU"),
+      icon: Users,
+      color: "text-primary bg-primary/10",
+    },
+    {
+      label: "Activos (7d)",
+      value: stats.activeUsers.toLocaleString("es-CU"),
+      icon: UserCheck,
+      color: "text-success bg-success/10",
+    },
+    {
+      label: "Matches Totales",
+      value: stats.totalMatches.toLocaleString("es-CU"),
+      icon: Heart,
+      color: "text-coral bg-coral/10",
+    },
+    {
+      label: "Usuarios de Pago",
+      value: stats.paidUsers.toLocaleString("es-CU"),
+      icon: CreditCard,
+      color: "text-gold bg-gold/10",
+    },
+    {
+      label: "Ingresos Estimados",
+      value: `$${stats.revenue.toLocaleString("es-CU")}`,
+      icon: DollarSign,
+      color: "text-success bg-success/10",
+    },
+    {
+      label: "% Conversión Pago",
+      value: `${stats.conversionRate}%`,
+      icon: TrendingUp,
+      color: "text-info bg-info/10",
+    },
+  ];
   return (
     <div>
       <div className="mb-6">
@@ -97,23 +141,11 @@ export default function AdminDashboardPage() {
 
       {/* Quick overview */}
       <div className="mt-6 rounded-2xl border border-border/50 bg-card p-5">
-        <h3 className="font-display font-semibold mb-3">Actividad Reciente</h3>
+        <h3 className="font-display font-semibold mb-3">Resumen</h3>
         <div className="space-y-3 text-sm">
           <div className="flex items-center gap-3 text-muted-foreground">
-            <div className="h-2 w-2 rounded-full bg-success" />
-            <span>142 nuevos registros esta semana</span>
-          </div>
-          <div className="flex items-center gap-3 text-muted-foreground">
-            <div className="h-2 w-2 rounded-full bg-primary" />
-            <span>89 matches generados hoy</span>
-          </div>
-          <div className="flex items-center gap-3 text-muted-foreground">
-            <div className="h-2 w-2 rounded-full bg-gold" />
-            <span>12 nuevas suscripciones esta semana</span>
-          </div>
-          <div className="flex items-center gap-3 text-muted-foreground">
             <div className="h-2 w-2 rounded-full bg-destructive" />
-            <span>3 reportes pendientes de revisión</span>
+            <span>{stats.pendingReports} reportes pendientes de revisión</span>
           </div>
         </div>
       </div>

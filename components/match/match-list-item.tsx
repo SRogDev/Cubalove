@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { MessageCircle } from "lucide-react";
 import type { Match } from "@/lib/types";
-import { formatTimeAgo, getAge } from "@/lib/mock-data";
+import { formatTimeAgo, getAge } from "@/lib/utils";
 
 interface MatchListItemProps {
   match: Match;

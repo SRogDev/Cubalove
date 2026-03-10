@@ -1,5 +1,5 @@
 -- ============================================================================
--- Empatando — Database Schema
+-- Cubalove — Database Schema
 -- ============================================================================
 -- Ejecutar este archivo completo en el SQL Editor de Supabase.
 -- Todas las tablas usan el schema "public" y tienen RLS habilitado.
@@ -28,6 +28,7 @@ CREATE TABLE users (
   role text NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
   status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'blocked')),
   suspended_until timestamptz,
+  onboarding_completed boolean NOT NULL DEFAULT false,
   last_active timestamptz DEFAULT now(),
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
@@ -271,13 +272,14 @@ CREATE INDEX idx_blocks_blocked ON blocks(blocked_id);
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.users (user_id, display_name, date_of_birth, gender, show_me)
+  INSERT INTO public.users (user_id, display_name, date_of_birth, gender, show_me, onboarding_completed)
   VALUES (
     NEW.id,
     COALESCE(NEW.raw_user_meta_data->>'display_name', NEW.raw_user_meta_data->>'full_name', 'Usuario'),
     COALESCE((NEW.raw_user_meta_data->>'date_of_birth')::date, '2000-01-01'::date),
     COALESCE(NEW.raw_user_meta_data->>'gender', 'otro'),
-    COALESCE(NEW.raw_user_meta_data->>'show_me', 'ambos')
+    COALESCE(NEW.raw_user_meta_data->>'show_me', 'ambos'),
+    false
   );
 
   -- Crear registro de stats vacío
@@ -1417,3 +1419,124 @@ CREATE POLICY "couple_vault_storage_delete"
         AND (couple_rooms.user1_id = auth.uid() OR couple_rooms.user2_id = auth.uid())
     )
   );
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- 19. AI Recommendation System
+-- Requires: CREATE EXTENSION vector; (pgvector — included in Supabase self-hosted)
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+-- Enable pgvector (run once; safe to re-run)
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- ── 19.1 User Embeddings ─────────────────────────────────────────────────────
+-- Stores two 1536-dim vectors per user (using gemini-embedding-exp-03-07):
+--   profile_embedding : who the user IS (bio + interests + prompts + demographics)
+--   ideal_embedding   : what the user WANTS (show_me + ideal description + interests as proxy)
+--
+-- Compatibility A→B = cosine_similarity(A.ideal_embedding, B.profile_embedding)
+-- Compatibility B→A = cosine_similarity(B.ideal_embedding, A.profile_embedding)
+-- Total score = (A→B + B→A) / 2  — only form pairs where both directions ≥ 0.80
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS user_embeddings (
+  user_id                   UUID         PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+  profile_embedding         vector(1536),
+  ideal_embedding           vector(1536),
+  ideal_partner_description TEXT         CHECK (char_length(ideal_partner_description) <= 500),
+  profile_text_hash         TEXT,        -- SHA-256 of source text; skip regen if unchanged
+  ideal_text_hash           TEXT,
+  updated_at                TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+-- ANN indexes for fast nearest-neighbor search during weekly batch
+-- lists=100 is suitable for up to ~1M rows; tune upward as user base grows
+CREATE INDEX IF NOT EXISTS idx_user_embeddings_profile
+  ON user_embeddings USING ivfflat (profile_embedding vector_cosine_ops)
+  WITH (lists = 100);
+
+CREATE INDEX IF NOT EXISTS idx_user_embeddings_ideal
+  ON user_embeddings USING ivfflat (ideal_embedding vector_cosine_ops)
+  WITH (lists = 100);
+
+-- RLS: users can only read/write their own row
+ALTER TABLE user_embeddings ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "user_embeddings_select_own"
+  ON user_embeddings FOR SELECT
+  TO authenticated
+  USING (user_id = auth.uid());
+
+CREATE POLICY "user_embeddings_upsert_own"
+  ON user_embeddings FOR INSERT
+  TO authenticated
+  WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "user_embeddings_update_own"
+  ON user_embeddings FOR UPDATE
+  TO authenticated
+  USING (user_id = auth.uid());
+
+-- ── 19.2 Weekly Cross-Recommendations ────────────────────────────────────────
+-- One row per PAIR (user_a_id < user_b_id) per week.
+-- Both users appear in each other's "Recomendado" tab when status = 'active'.
+--
+-- Cooldown rule: a pair cannot be recommended again for 8 weeks after their
+-- most recent row's created_at, regardless of status.
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS recommendations (
+  id                  UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_a_id           UUID          NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  user_b_id           UUID          NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  -- Directional cosine similarity scores (0.0 – 1.0)
+  score_a_to_b        NUMERIC(6,4)  NOT NULL CHECK (score_a_to_b BETWEEN 0 AND 1),
+  score_b_to_a        NUMERIC(6,4)  NOT NULL CHECK (score_b_to_a BETWEEN 0 AND 1),
+  compatibility_score NUMERIC(6,4)  NOT NULL CHECK (compatibility_score BETWEEN 0 AND 1),
+  -- 'active' = visible this week, 'past' = archived
+  status              TEXT          NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'past')),
+  week_start          DATE          NOT NULL,  -- Monday of the recommendation week
+  created_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
+  -- Enforce canonical ordering so (A,B) and (B,A) are the same row
+  CONSTRAINT recommendations_ordered CHECK (user_a_id < user_b_id),
+  -- Only one active recommendation per pair per week
+  CONSTRAINT recommendations_unique_per_week UNIQUE (user_a_id, user_b_id, week_start)
+);
+
+-- Index by each user for fast "give me my recommendations" queries
+CREATE INDEX IF NOT EXISTS idx_rec_user_a_status
+  ON recommendations (user_a_id, status, compatibility_score DESC);
+
+CREATE INDEX IF NOT EXISTS idx_rec_user_b_status
+  ON recommendations (user_b_id, status, compatibility_score DESC);
+
+-- Index for cooldown checks (find most recent rec for a given pair)
+CREATE INDEX IF NOT EXISTS idx_rec_pair_created
+  ON recommendations (user_a_id, user_b_id, created_at DESC);
+
+-- RLS: users can only see rows that include their own user_id
+ALTER TABLE recommendations ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "recommendations_select_own"
+  ON recommendations FOR SELECT
+  TO authenticated
+  USING (user_a_id = auth.uid() OR user_b_id = auth.uid());
+
+-- ── 19.3 pg_cron: Weekly calculation job ─────────────────────────────────────
+-- Fires every Monday at 03:00 UTC → calls the Next.js calculate endpoint.
+-- Requires pg_cron + pg_net extensions (available in Supabase self-hosted).
+-- Replace YOUR_CRON_SECRET and YOUR_APP_DOMAIN before running.
+-- ─────────────────────────────────────────────────────────────────────────────
+/*
+SELECT cron.schedule(
+  'cubalove-weekly-recommendations',
+  '0 3 * * 1',
+  $$
+  SELECT net.http_post(
+    url     := 'https://YOUR_APP_DOMAIN/api/recommendations/calculate',
+    headers := jsonb_build_object(
+      'Content-Type',  'application/json',
+      'Authorization', 'Bearer YOUR_CRON_SECRET'
+    ),
+    body    := '{}'::jsonb
+  );
+  $$
+);
+*/

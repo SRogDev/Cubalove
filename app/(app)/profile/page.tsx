@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import useSWR from "swr";
 import {
-  Settings,
   HelpCircle,
   Camera,
   MapPin,
@@ -17,17 +18,61 @@ import {
   Bell,
   Heart,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { HelpModal } from "@/components/profile/help-modal";
 import { NotificationSettings } from "@/components/profile/notification-settings";
-import { MOCK_PROFILES, getAge } from "@/lib/mock-data";
-
-// Simulate current user as first mock profile
-const currentUser = MOCK_PROFILES[0];
+import { PhotoGridEditor } from "@/components/profile/photo-grid-editor";
+import {
+  BioEditor,
+  WorkEditor,
+  PromptEditor,
+  InterestsEditor,
+} from "@/components/profile/edit-sheets";
+import { IdealPartnerModal } from "@/components/discover/ideal-partner-modal";
+import { getMyProfile, getIdealDescription } from "@/app/actions/profile";
+import { getAge } from "@/lib/utils";
+import { SUGGESTED_PROMPTS, SUGGESTED_INTERESTS } from "@/lib/mock-data";
+import { createClient } from "@/lib/supabase/client";
+import type { UserProfile } from "@/lib/types";
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [helpOpen, setHelpOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [bioOpen, setBioOpen] = useState(false);
+  const [workOpen, setWorkOpen] = useState(false);
+  const [interestsOpen, setInterestsOpen] = useState(false);
+  const [editingPrompt, setEditingPrompt] = useState<number | null>(null);
+  const [idealOpen, setIdealOpen] = useState(false);
+
+  const { data, isLoading, mutate } = useSWR("my-profile", async () => {
+    const result = await getMyProfile();
+    if (result.error || !result.data) throw new Error(result.error);
+    return result.data;
+  }, { revalidateOnFocus: false });
+
+  const { data: idealData, mutate: mutateIdeal } = useSWR("ideal-description", async () => {
+    const result = await getIdealDescription();
+    return result.description ?? null;
+  }, { revalidateOnFocus: false });
+
+  const currentUser = data as UserProfile | undefined;
+
+  const refresh = useCallback(() => mutate(), [mutate]);
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/auth/login");
+  };
+
+  if (isLoading || !currentUser) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   const age = getAge(currentUser.date_of_birth);
 
   return (
@@ -43,13 +88,6 @@ export default function ProfilePage() {
             aria-label="Ayuda"
           >
             <HelpCircle size={20} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label="Configuración"
-          >
-            <Settings size={20} aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -98,34 +136,7 @@ export default function ProfilePage() {
             {currentUser.photos.length}/6
           </span>
         </div>
-        <div className="grid grid-cols-3 gap-2">
-          {Array.from({ length: 6 }).map((_, i) => {
-            const photo = currentUser.photos[i];
-            return (
-              <button
-                key={i}
-                type="button"
-                className="relative aspect-[2/3] rounded-xl overflow-hidden bg-muted border-2 border-dashed border-border transition-colors hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                aria-label={photo ? `Editar foto ${i + 1}` : `Añadir foto ${i + 1}`}
-              >
-                {photo ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={photo.url}
-                    alt={`Foto ${i + 1}`}
-                    className="h-full w-full object-cover"
-                    width={200}
-                    height={300}
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center">
-                    <Camera size={20} className="text-muted-foreground" aria-hidden="true" />
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
+        <PhotoGridEditor photos={currentUser.photos} onUpdate={refresh} />
       </div>
 
       {/* Bio */}
@@ -135,6 +146,7 @@ export default function ProfilePage() {
         </h3>
         <button
           type="button"
+          onClick={() => setBioOpen(true)}
           className="w-full text-left rounded-2xl bg-muted/50 p-4 text-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Editar bio"
         >
@@ -153,6 +165,7 @@ export default function ProfilePage() {
         </h3>
         <button
           type="button"
+          onClick={() => setWorkOpen(true)}
           className="w-full flex items-center gap-3 rounded-2xl bg-muted/50 p-4 text-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Editar trabajo o estudio"
         >
@@ -176,13 +189,15 @@ export default function ProfilePage() {
         </div>
         <div className="space-y-2">
           {Array.from({ length: 3 }).map((_, i) => {
-            const prompt = currentUser.prompts[i];
+            const position = i + 1;
+            const prompt = currentUser.prompts.find((p) => p.position === position);
             return (
               <button
-                key={i}
+                key={position}
                 type="button"
+                onClick={() => setEditingPrompt(position)}
                 className="w-full text-left rounded-2xl bg-muted/50 p-4 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                aria-label={prompt ? `Editar prompt ${i + 1}` : `Añadir prompt ${i + 1}`}
+                aria-label={prompt ? `Editar prompt ${position}` : `Añadir prompt ${position}`}
               >
                 {prompt ? (
                   <>
@@ -223,12 +238,37 @@ export default function ProfilePage() {
           ))}
           <button
             type="button"
+            onClick={() => setInterestsOpen(true)}
             className="inline-flex items-center rounded-full border-2 border-dashed border-primary/30 px-3.5 py-1.5 text-sm font-medium text-primary/60 hover:border-primary/50 hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label="Añadir interés"
+            aria-label="Editar intereses"
           >
-            + Añadir
+            + Editar
           </button>
         </div>
+      </div>
+
+      {/* Persona ideal */}
+      <div className="px-4 mb-6">
+        <div className="flex items-center gap-1.5 mb-2">
+          <Sparkles size={14} className="text-primary" aria-hidden="true" />
+          <h3 className="font-display font-semibold text-sm text-muted-foreground uppercase tracking-wider">
+            Persona ideal
+          </h3>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIdealOpen(true)}
+          className="w-full text-left rounded-2xl bg-muted/50 p-4 text-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Editar descripción de persona ideal"
+        >
+          {idealData ? (
+            <span className="line-clamp-2">{idealData}</span>
+          ) : (
+            <span className="text-muted-foreground">
+              Cuéntanos cómo es la persona que buscas para activar las recomendaciones&hellip;
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Quick links */}
@@ -276,6 +316,7 @@ export default function ProfilePage() {
 
         <button
           type="button"
+          onClick={handleLogout}
           className="w-full flex items-center gap-3 rounded-2xl bg-muted/50 p-4 text-sm text-destructive transition-colors hover:bg-destructive/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Cerrar sesión"
         >
@@ -284,8 +325,56 @@ export default function ProfilePage() {
         </button>
       </div>
 
+      {/* ─── Edit Sheets ─── */}
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
       <NotificationSettings open={notifOpen} onClose={() => setNotifOpen(false)} />
-    </div>
+
+      <BioEditor
+        open={bioOpen}
+        onClose={() => setBioOpen(false)}
+        currentBio={currentUser.bio}
+        onSaved={refresh}
+      />
+
+      <WorkEditor
+        open={workOpen}
+        onClose={() => setWorkOpen(false)}
+        currentValue={currentUser.work_study}
+        onSaved={refresh}
+      />
+
+      <InterestsEditor
+        open={interestsOpen}
+        onClose={() => setInterestsOpen(false)}
+        currentInterests={currentUser.interests}
+        suggestedInterests={SUGGESTED_INTERESTS}
+        onSaved={refresh}
+      />
+
+      {editingPrompt !== null && (
+        <PromptEditor
+          open
+          onClose={() => setEditingPrompt(null)}
+          position={editingPrompt}
+          currentPromptText={
+            currentUser.prompts.find((p) => p.position === editingPrompt)?.prompt_text ?? ""
+          }
+          currentAnswerText={
+            currentUser.prompts.find((p) => p.position === editingPrompt)?.answer_text ?? ""
+          }
+          suggestedPrompts={SUGGESTED_PROMPTS}
+          onSaved={refresh}
+        />
+      )}
+
+      <IdealPartnerModal
+        open={idealOpen}
+        onClose={(saved) => {
+          setIdealOpen(false);
+          if (saved) mutateIdeal();
+        }}
+        isFirstTime={!idealData}
+        initialText={idealData ?? ""}
+      />    </div>
   );
 }

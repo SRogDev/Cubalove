@@ -22,7 +22,7 @@ import {
   getReportsForUser,
   updateReportStatus,
 } from "../actions";
-import { getAge } from "@/lib/mock-data";
+import { getAge } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { REPORT_REASONS } from "@/lib/constants/subscription";
 import type { UserProfile, ReportReason, ReportStatus } from "@/lib/types";
@@ -160,9 +160,9 @@ export const ModerationUserItem = ({
                   "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold",
                   currentStatus === "active" && "bg-success/10 text-success",
                   currentStatus === "suspended" &&
-                    "bg-warning/10 text-warning",
+                  "bg-warning/10 text-warning",
                   currentStatus === "blocked" &&
-                    "bg-destructive/10 text-destructive"
+                  "bg-destructive/10 text-destructive"
                 )}
               >
                 {currentStatus === "active" && "Activo"}
@@ -238,18 +238,18 @@ export const ModerationUserItem = ({
 
             {(currentStatus === "suspended" ||
               currentStatus === "blocked") && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleAction("reactivate")}
-                disabled={loading}
-                className="h-8 px-2 rounded-lg text-success hover:text-success hover:bg-success/10 text-xs"
-                aria-label="Reactivar usuario"
-              >
-                <RotateCcw size={14} className="mr-1" />
-                Reactivar
-              </Button>
-            )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleAction("reactivate")}
+                  disabled={loading}
+                  className="h-8 px-2 rounded-lg text-success hover:text-success hover:bg-success/10 text-xs"
+                  aria-label="Reactivar usuario"
+                >
+                  <RotateCcw size={14} className="mr-1" />
+                  Reactivar
+                </Button>
+              )}
           </div>
         </div>
 

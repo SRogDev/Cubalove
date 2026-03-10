@@ -148,7 +148,7 @@ export const MOCK_CHISMES: Chisme[] = [
   {
     id: "c1",
     content: {
-      text: "Sabías que el 68% de los matches en Empatando comienzan hablando de comida? La ropa vieja conecta corazones.",
+      text: "Sabías que el 68% de los matches en Cubalove comienzan hablando de comida? La ropa vieja conecta corazones.",
       type: "stat",
     },
     image_url: null,
@@ -172,7 +172,7 @@ export const MOCK_CHISMES: Chisme[] = [
   {
     id: "c3",
     content: {
-      text: "Ya somos +5,000 cubanos buscando amor en Empatando! Gracias por ser parte de esta comunidad.",
+      text: "Ya somos +5,000 cubanos buscando amor en Cubalove! Gracias por ser parte de esta comunidad.",
       type: "milestone",
     },
     image_url: null,
@@ -184,7 +184,7 @@ export const MOCK_CHISMES: Chisme[] = [
   {
     id: "c4",
     content: {
-      text: "Dato curioso: La hora con más matches es las 9pm los viernes. Así que ya sabes, abre Empatando esta noche!",
+      text: "Dato curioso: La hora con más matches es las 9pm los viernes. Así que ya sabes, abre Cubalove esta noche!",
       type: "stat",
     },
     image_url: null,
@@ -196,7 +196,7 @@ export const MOCK_CHISMES: Chisme[] = [
   {
     id: "c5",
     content: {
-      text: "Pareja se conoció en Empatando hace 2 meses. Hoy nos comparten que todo va de maravilla. El amor cubano es fuerte!",
+      text: "Pareja se conoció en Cubalove hace 2 meses. Hoy nos comparten que todo va de maravilla. El amor cubano es fuerte!",
       type: "success",
     },
     image_url: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&h=400&fit=crop",

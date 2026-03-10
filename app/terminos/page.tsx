@@ -5,8 +5,8 @@ export const dynamic = "force-static";
 export const revalidate = 86400; // 24 hours
 
 export const metadata = {
-  title: "Términos de Uso — Empatando",
-  description: "Términos y condiciones de uso de Empatando",
+  title: "Términos de Uso — Cubalove",
+  description: "Términos y condiciones de uso de Cubalove",
 };
 
 export default function TerminosPage() {
@@ -32,9 +32,9 @@ export default function TerminosPage() {
         <div className="prose prose-sm max-w-none space-y-6 text-foreground/90 [&_h2]:font-display [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mt-8 [&_h2]:mb-3 [&_h3]:font-display [&_h3]:font-semibold [&_h3]:mt-6 [&_h3]:mb-2 [&_p]:leading-relaxed [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:space-y-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:space-y-1">
 
           <p>
-            Bienvenido/a a <strong>Empatando</strong> (en lo adelante, &ldquo;la
+            Bienvenido/a a <strong>Cubalove</strong> (en lo adelante, &ldquo;la
             Plataforma&rdquo;, &ldquo;la App&rdquo; o &ldquo;nosotros&rdquo;). Al acceder
-            y utilizar Empatando, aceptas estos Términos de Uso en su totalidad. Si no
+            y utilizar Cubalove, aceptas estos Términos de Uso en su totalidad. Si no
             estás de acuerdo con alguno de estos términos, por favor no utilices la
             Plataforma.
           </p>
@@ -45,7 +45,7 @@ export default function TerminosPage() {
 
           <h2>1. Descripción del Servicio</h2>
           <p>
-            Empatando es una plataforma de citas en línea que permite a personas mayores
+            Cubalove es una plataforma de citas en línea que permite a personas mayores
             de edad conectar con otros usuarios en Cuba y más allá. Ofrecemos funciones de
             descubrimiento de perfiles, matches mutuos, comunicación entre usuarios, y
             contenido comunitario (&ldquo;Chismes&rdquo;).
@@ -53,15 +53,15 @@ export default function TerminosPage() {
 
           <h2>2. Requisito de Edad</h2>
           <p>
-            Para utilizar Empatando <strong>debes tener 18 años o más</strong>. Al
+            Para utilizar Cubalove <strong>debes tener 18 años o más</strong>. Al
             crear tu cuenta, declaras y garantizas que tienes al menos 18 años de edad.
           </p>
           <p>
-            <strong>Descargo de responsabilidad:</strong> Empatando no se hace
+            <strong>Descargo de responsabilidad:</strong> Cubalove no se hace
             responsable por usuarios que declaren falsamente ser mayores de edad. Si un
             menor de 18 años accede a la plataforma proporcionando información falsa
             sobre su edad, dicho usuario estará violando directamente estos Términos de
-            Uso y las leyes aplicables. Empatando se reserva el derecho de eliminar
+            Uso y las leyes aplicables. Cubalove se reserva el derecho de eliminar
             inmediatamente cualquier cuenta que se determine pertenece a un menor de
             edad, sin previo aviso ni derecho a reclamo.
           </p>
@@ -78,7 +78,7 @@ export default function TerminosPage() {
             </li>
             <li>
               Eres responsable de mantener la seguridad de tu cuenta de Google y, por
-              extensión, de tu cuenta en Empatando.
+              extensión, de tu cuenta en Cubalove.
             </li>
             <li>
               La información de perfil que proporciones debe ser veraz y actualizada. No
@@ -92,7 +92,7 @@ export default function TerminosPage() {
 
           <h2>4. Recopilación y Uso de Información</h2>
           <p>
-            Al utilizar Empatando, aceptas que recopilamos y almacenamos la siguiente
+            Al utilizar Cubalove, aceptas que recopilamos y almacenamos la siguiente
             información para el funcionamiento de la Plataforma:
           </p>
           <ul>
@@ -124,7 +124,7 @@ export default function TerminosPage() {
           </p>
 
           <h2>5. Conducta del Usuario</h2>
-          <p>Al utilizar Empatando te comprometes a:</p>
+          <p>Al utilizar Cubalove te comprometes a:</p>
           <ul>
             <li>Tratar a otros usuarios con respeto y dignidad.</li>
             <li>No publicar contenido ofensivo, obsceno, violento o ilegal.</li>
@@ -141,7 +141,7 @@ export default function TerminosPage() {
 
           <h2>6. Moderación y Sanciones</h2>
           <p>
-            Empatando se reserva el derecho de moderar el contenido y la conducta de
+            Cubalove se reserva el derecho de moderar el contenido y la conducta de
             los usuarios. Las sanciones incluyen:
           </p>
           <ul>
@@ -164,7 +164,7 @@ export default function TerminosPage() {
           <h2>7. Suscripciones y Pagos</h2>
           <ul>
             <li>
-              Empatando ofrece planes de suscripción opcionales (Plus y VIP) que
+              Cubalove ofrece planes de suscripción opcionales (Plus y VIP) que
               desbloquean funcionalidades adicionales.
             </li>
             <li>
@@ -185,17 +185,17 @@ export default function TerminosPage() {
 
           <h2>8. Propiedad Intelectual</h2>
           <p>
-            Todo el contenido de Empatando (diseño, código, marca, logotipos, textos)
-            es propiedad de Empatando o sus licenciantes. Los usuarios conservan los
+            Todo el contenido de Cubalove (diseño, código, marca, logotipos, textos)
+            es propiedad de Cubalove o sus licenciantes. Los usuarios conservan los
             derechos sobre el contenido que suben (fotos, textos de perfil), pero otorgan
-            a Empatando una licencia no exclusiva para mostrar dicho contenido dentro de
+            a Cubalove una licencia no exclusiva para mostrar dicho contenido dentro de
             la Plataforma.
           </p>
 
           <h2>9. Limitación de Responsabilidad</h2>
           <ul>
             <li>
-              Empatando no garantiza resultados específicos en el uso de la plataforma
+              Cubalove no garantiza resultados específicos en el uso de la plataforma
               (matches, relaciones, etc.).
             </li>
             <li>
@@ -207,14 +207,14 @@ export default function TerminosPage() {
               disponibilidad&rdquo;.
             </li>
             <li>
-              Empatando no garantiza disponibilidad ininterrumpida del servicio,
+              Cubalove no garantiza disponibilidad ininterrumpida del servicio,
               especialmente considerando las condiciones de conectividad en Cuba.
             </li>
           </ul>
 
           <h2>10. Modificaciones a estos Términos</h2>
           <p>
-            Empatando puede actualizar estos Términos de Uso en cualquier momento.
+            Cubalove puede actualizar estos Términos de Uso en cualquier momento.
             <strong>
               {" "}Cualquier cambio será notificado a todos los usuarios de forma
               inmediata
@@ -226,12 +226,12 @@ export default function TerminosPage() {
 
           <h2>11. Terminación</h2>
           <p>
-            Puedes dejar de usar Empatando en cualquier momento. También puedes
+            Puedes dejar de usar Cubalove en cualquier momento. También puedes
             solicitar la eliminación de tu cuenta, lo cual resultará en la eliminación de
             tus datos personales conforme a nuestra Política de Privacidad.
           </p>
           <p>
-            Empatando se reserva el derecho de suspender o terminar tu acceso a la
+            Cubalove se reserva el derecho de suspender o terminar tu acceso a la
             Plataforma si determina que has violado estos Términos de Uso.
           </p>
 
@@ -240,7 +240,7 @@ export default function TerminosPage() {
             Si tienes preguntas o inquietudes sobre estos Términos de Uso, puedes
             contactarnos a través de nuestros canales oficiales en Instagram o Telegram,
             o escribirnos a{" "}
-            <strong>empatando@datingcuba.com</strong>.
+            <strong>hola@cubalove.com</strong>.
           </p>
 
           {/* Footer links */}

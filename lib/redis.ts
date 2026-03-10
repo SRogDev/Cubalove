@@ -34,6 +34,9 @@ export const CacheKeys = {
 
   /** User last active timestamp */
   userLastActive: (userId: string) => `user:lastactive:${userId}`,
+
+  /** Active recommendations for a user (cached for the week) */
+  recommendations: (userId: string) => `recs:active:${userId}`,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -48,4 +51,5 @@ export const CacheTTL = {
   USER_LOCATION: 60 * 60 * 1,      // 1 hour
   USER_PLAN: 60 * 60 * 1,          // 1 hour
   USER_LAST_ACTIVE: 60 * 60 * 1,   // 1 hour
+  RECOMMENDATIONS: 60 * 60 * 24 * 7, // 7 days — valid for the whole week
 } as const;

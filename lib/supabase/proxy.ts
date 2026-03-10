@@ -5,6 +5,9 @@ import { hasEnvVars } from "../utils";
 // Rutas accesibles sin autenticación
 const PUBLIC_ROUTES = ["/", "/terminos", "/privacidad", "/login", "/auth"];
 
+// Rutas que requieren auth pero NO requieren onboarding completo
+const ONBOARDING_EXEMPT_ROUTES = ["/onboarding", "/api"];
+
 function isPublicRoute(pathname: string): boolean {
   return PUBLIC_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(route + "/")
@@ -88,6 +91,25 @@ export async function updateSession(request: NextRequest) {
     if (profile?.role !== "admin") {
       const url = request.nextUrl.clone();
       url.pathname = "/discover";
+      return NextResponse.redirect(url);
+    }
+  }
+
+  // Onboarding gate — redirect to /onboarding if not completed
+  const isOnboardingExempt = ONBOARDING_EXEMPT_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(route + "/")
+  );
+
+  if (!isOnboardingExempt) {
+    const { data: userProfile } = await supabase
+      .from("users")
+      .select("onboarding_completed")
+      .eq("user_id", user.sub)
+      .single();
+
+    if (userProfile && !userProfile.onboarding_completed) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/onboarding";
       return NextResponse.redirect(url);
     }
   }
