@@ -68,7 +68,7 @@ export const ChismeCard = ({ chisme, index }: ChismeCardProps) => {
 
   const handleShare = async () => {
     const shareData = {
-      title: "Empatando",
+      title: "Cubalove",
       text: chisme.content.text,
       url: window.location.href,
     };
