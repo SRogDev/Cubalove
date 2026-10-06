@@ -54,7 +54,7 @@ export const AttentionUser = ({ status, suspendedUntil }: AttentionUserProps) =>
             </p>
             {suspendedDate && (
               <p className="text-sm text-muted-foreground">
-                Podrás volver a usar Empatando a partir del{" "}
+                Podrás volver a usar Cubalove a partir del{" "}
                 <strong>{suspendedDate}</strong>.
               </p>
             )}
@@ -72,7 +72,7 @@ export const AttentionUser = ({ status, suspendedUntil }: AttentionUserProps) =>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Lamentamos informarte que tu cuenta ha sido bloqueada de forma
               permanente debido a comportamientos que violan los términos y normas
-              de Empatando.
+              de Cubalove.
             </p>
             <div className="rounded-xl bg-destructive/5 border border-destructive/20 p-4 mt-4">
               <p className="text-sm text-destructive font-medium">
