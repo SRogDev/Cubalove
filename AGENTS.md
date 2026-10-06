@@ -1,8 +1,8 @@
-# AGENTS.md — Empatando
+# AGENTS.md — Cubalove
 
 ## Descripción del Proyecto
 
-Empatando es una plataforma de citas online inspirada en Tinder, construida con
+Cubalove es una plataforma de citas online inspirada en Tinder, construida con
 Next.js 16 (App Router), Supabase y Tailwind CSS. El objetivo es ofrecer una experiencia
 de matchmaking moderna optimizada para el contexto cubano (conectividad limitada,
 dispositivos de gama baja, PWA-first).
@@ -21,8 +21,8 @@ de Tinder pero la adaptamos al contexto local.
 
 ### Monetización
 - Freemium: funcionalidades básicas gratuitas con swipes limitados por día
-- Empatando Plus ($2/mes o 1000 CUP): swipes ilimitados, deshacer swipe, 1 boost mensual
-- Empatando VIP ($8/mes o 4000 CUP): ver quién te dio like, likes ilimitados, boosts, pasaporte
+- Cubalove Plus ($2/mes o 1000 CUP): swipes ilimitados, deshacer swipe, 1 boost mensual
+- Cubalove VIP ($8/mes o 4000 CUP): ver quién te dio like, likes ilimitados, boosts, pasaporte
 
 ## Agentes Especializados
 
@@ -32,7 +32,7 @@ de Tinder pero la adaptamos al contexto local.
 - Implementar el SwipeStack con animaciones fluidas usando Framer Motion
 - Crear gestos táctiles para swipe left (nope), right (like), up (super like)
 - Desarrollar los botones de acción (X, corazón, estrella, rewind, boost)
-- Implementar la pantalla de "¡Empataste!" con animaciones
+- Implementar la pantalla de "¡Match!" con animaciones
 - Optimizar rendimiento de animaciones en dispositivos de gama baja
 - Garantizar 60fps en las animaciones de swipe
 
