@@ -42,16 +42,16 @@ Debemos estudiar y replicar las siguientes características clave de Tinder:
 - **Lucide React** para iconografía
 - **geolib** para cálculos de distancia geográfica
 
-### Backend (Supabase — Self-hosted en Digital Ocean)
+### Backend (Supabase — Self-hosted en VPS)
 - **Supabase Auth**: OAuth con Google exclusivamente (no email/password)
 - **Supabase Database (PostgreSQL + PostGIS)**: Todas las tablas con RLS
-- **Supabase Storage**: Apuntado a Digital Ocean Spaces (S3 compatible)
+- **Supabase Storage**: Apuntado a almacenamiento S3-compatible (Hetzner Object Storage, DO Spaces, MinIO, AWS S3...)
 - **Supabase Realtime**: Chat en tiempo real y notificaciones de match
 - **Supabase Edge Functions**: Lógica de servidor (matching algorithm, etc.)
 
 ### Infraestructura
-- **Digital Ocean**: Droplet para Next.js + Supabase self-hosted
-- **Digital Ocean Spaces**: Storage S3-compatible para fotos y assets
+- **VPS** (p. ej. Hetzner): Next.js + Supabase self-hosted vía Docker Compose
+- **S3-compatible storage**: para fotos y assets (configurado vía vars `S3_*`)
 - **Cloudflare**: CDN, DNS, SSL, WAF, Image Resizing
 - **Dokploy**: Orquestación de deploy automático desde GitHub
 - Ver `INFRA.md` para detalles completos de la arquitectura
@@ -229,8 +229,12 @@ STRIPE_WEBHOOK_SECRET=                 # Secreto del webhook de Stripe
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=    # Clave pública de Stripe
 STRIPE_PRICE_PLUS_ID=                  # Price ID de plan Plus en Stripe
 STRIPE_PRICE_VIP_ID=                   # Price ID de plan VIP en Stripe
-DO_SPACES_KEY=                         # Digital Ocean Spaces access key
-DO_SPACES_SECRET=                      # Digital Ocean Spaces secret key
+S3_ENDPOINT=                         # S3-compatible storage endpoint (Hetzner Object Storage, DO Spaces, MinIO, AWS S3...)
+S3_REGION=                           # S3 region (us-east-1 por defecto)
+S3_BUCKET=                            # S3 bucket name
+S3_ACCESS_KEY=                       # S3 access key
+S3_SECRET_KEY=                       # S3 secret key (solo servidor)
+STORAGE_IMAGE_HOSTNAMES=             # Hostnames extra de imagenes (comma-separated, wildcards ok)
 NEXT_PUBLIC_VAPID_PUBLIC_KEY=          # VAPID public key para push notifications
 VAPID_PRIVATE_KEY=                     # VAPID private key (solo servidor)
 INTERNAL_API_SECRET=                   # Secret para llamadas server-to-server
