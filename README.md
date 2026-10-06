@@ -23,7 +23,7 @@ Dating app for Cubans — a Tinder-style matchmaking platform designed for the C
 - **Backend:** Next.js API routes + server actions, Zod validation
 - **Data:** Self-hosted Supabase — PostgreSQL (+ PostGIS), Auth (Google OAuth only), PostgREST, Realtime, Storage (full schema with RLS in `database.sql`)
 - **Cache:** Redis (discovery queues, boosts, sessions, recommendations cache)
-- **Infra:** Docker Compose stack tuned for a 4 GB VPS (Postgres, PgBouncer, Redis, Supabase services, Nginx); DigitalOcean + Dokploy + Cloudflare per `INFRA.md`; DigitalOcean Spaces (S3-compatible) for storage
+- **Infra:** Docker Compose stack tuned for a 4 GB VPS (Postgres, PgBouncer, Redis, Supabase services, Nginx); Dokploy + Cloudflare per `INFRA.md`; any S3-compatible object storage (Hetzner Object Storage, DO Spaces, MinIO, AWS S3)
 
 ## Project structure
 
@@ -67,5 +67,5 @@ npm run test:e2e    # Playwright E2E (needs the app running)
 ## Docs
 
 - `AGENTS.md` / `CLAUDE.md` — conventions and specialized agent roles
-- `INFRA.md` — infrastructure architecture (DigitalOcean, Dokploy, Cloudflare, DO Spaces)
+- `INFRA.md` — infrastructure architecture (VPS, Dokploy, Cloudflare, S3-compatible storage)
 - `database.sql` — database schema, triggers, and RLS policies
