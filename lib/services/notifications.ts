@@ -50,7 +50,7 @@ const NOTIFICATION_TEMPLATES: Record<
   }
 > = {
   match: {
-    title: "\uD83D\uDC98 \u00A1Empataste!",
+    title: "\uD83D\uDC98 \u00A1Match!",
     body: (data) =>
       `T\u00FA y ${data?.name ?? "alguien"} se gustan. Abre la app y manda el primer mensaje`,
     url: "/matches",
