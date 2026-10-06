@@ -74,7 +74,7 @@ export function LoveVault({
   };
 
   const handleShare = async (platform: "whatsapp" | "instagram") => {
-    const text = `Mira nuestro Baúl de Amor en Empatando`;
+    const text = `Mira nuestro Baúl de Amor en Cubalove`;
     const url = window.location.href;
 
     if (platform === "whatsapp") {
