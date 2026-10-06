@@ -9,7 +9,8 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:agentic": "e2e run"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.43",
@@ -55,6 +56,10 @@
     "tailwindcss": "^3.4.19",
     "tailwindcss-animate": "^1.0.7",
     "ts-jest": "^29.4.6",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "e2e": "^0.18.0",
+    "@e2e-dev/web": "^0.13.0",
+    "ai": "^7.0.0",
+    "zod": "^4.1.8"
   }
 }
