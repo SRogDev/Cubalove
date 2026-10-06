@@ -1,8 +1,8 @@
-# INFRA.md — Empatando — Infraestructura
+# INFRA.md — Cubalove — Infraestructura
 
 ## Visión General
 
-Toda la infraestructura de Empatando está alojada en **Digital Ocean**, usando
+Toda la infraestructura de Cubalove está alojada en **Digital Ocean**, usando
 **Dokploy** como plataforma de deployment y orquestación. Usamos **Cloudflare** como
 CDN y proxy de seguridad frente a todo el tráfico público.
 

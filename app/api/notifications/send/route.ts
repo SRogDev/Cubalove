@@ -12,7 +12,7 @@ const supabaseAdmin = createClient(
 
 // Configure web-push with VAPID keys
 webpush.setVapidDetails(
-  "mailto:empatando@datingcuba.com",
+  "mailto:cubalove@datingcuba.com",
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
   process.env.VAPID_PRIVATE_KEY!
 );

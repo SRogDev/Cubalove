@@ -59,7 +59,7 @@ export function CoupleLinkForm({ onSubmit }: CoupleLinkFormProps) {
       </h2>
       <p className="text-sm text-muted-foreground text-center max-w-xs mb-8">
         Ingresa el número de teléfono y nombre de tu pareja como aparece en
-        Empatando para enviarle una solicitud de vinculación.
+        Cubalove para enviarle una solicitud de vinculación.
       </p>
 
       <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
@@ -69,7 +69,7 @@ export function CoupleLinkForm({ onSubmit }: CoupleLinkFormProps) {
             htmlFor="partner-name"
             className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block"
           >
-            Nombre en Empatando
+            Nombre en Cubalove
           </label>
           <div className="relative">
             <User

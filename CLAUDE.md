@@ -1,13 +1,13 @@
-# CLAUDE.md — Empatando
+# CLAUDE.md — Cubalove
 
 ## Proyecto
 
-**Empatando** es una aplicación de citas diseñada específicamente para el mercado cubano.
+**Cubalove** es una aplicación de citas diseñada específicamente para el mercado cubano.
 El producto se inspira directamente en **Tinder** — imitamos sus elementos de UI, flujos de
 interacción y lógicas de matching. El stack es **Next.js 16 (App Router)** + **Supabase**
 (auth, database, storage, realtime) + **Tailwind CSS** + **shadcn/ui**.
 
-Contacto: empatando@datingcuba.com
+Contacto: cubalove@datingcuba.com
 
 ## Referencia Principal: Tinder
 
@@ -17,7 +17,7 @@ Debemos estudiar y replicar las siguientes características clave de Tinder:
 - **Card Stack**: Las tarjetas de perfil se apilan y se deslizan (swipe left/right)
 - **Swipe Gestures**: Soporte completo para gestos táctiles en móvil y drag en desktop
 - **Like / Nope / Super Like**: Los tres estados visuales al interactuar con un perfil
-- **Match Screen**: La pantalla de "¡Empataste!" con animación cuando hay match mutuo
+- **Match Screen**: La pantalla de "¡Match!" con animación cuando hay match mutuo
 - **Chat Interface**: Mensajería en tiempo real similar a la de Tinder
 - **Profile Cards**: Fotos grandes, nombre, edad, bio corta, distancia
 - **Discovery Settings**: Filtros de edad, distancia, género

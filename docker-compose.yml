@@ -1,5 +1,5 @@
 # =============================================================================
-# Empatando — Docker Compose (Producción Cuba)
+# Cubalove — Docker Compose (Producción Cuba)
 # Optimizado para VPS 4GB RAM
 #
 # Distribución de memoria:
@@ -19,7 +19,7 @@
 version: '3.8'
 
 networks:
-  empatando:
+  cubalove:
     driver: bridge
     ipam:
       config:
@@ -73,7 +73,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - empatando
+      - cubalove
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d ${POSTGRES_DB:-postgres}"]
       interval: 10s
@@ -114,7 +114,7 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - empatando
+      - cubalove
     healthcheck:
       test: ["CMD", "pg_isready", "-h", "localhost", "-p", "6432"]
       interval: 10s
@@ -150,7 +150,7 @@ services:
     volumes:
       - redis_data:/data
     networks:
-      - empatando
+      - cubalove
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
@@ -181,7 +181,7 @@ services:
       pgbouncer:
         condition: service_healthy
     networks:
-      - empatando
+      - cubalove
 
   # ===========================================
   # 5. SUPABASE AUTH (GoTrue) — 128MB
@@ -215,7 +215,7 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - empatando
+      - cubalove
 
   # ===========================================
   # 6. SUPABASE STORAGE — 128MB
@@ -236,7 +236,7 @@ services:
       DATABASE_URL: postgres://authenticator:${PGRST_DB_PASS}@postgres:5432/${POSTGRES_DB:-postgres}
       PGRST_JWT_SECRET: ${JWT_SECRET}
       STORAGE_BACKEND: s3
-      GLOBAL_S3_BUCKET: ${DO_SPACES_BUCKET:-empatando}
+      GLOBAL_S3_BUCKET: ${DO_SPACES_BUCKET:-cubalove}
       GLOBAL_S3_ENDPOINT: ${DO_SPACES_ENDPOINT:-}
       GLOBAL_S3_PROTOCOL: https
       GLOBAL_S3_FORCE_PATH_STYLE: "true"
@@ -246,7 +246,7 @@ services:
     depends_on:
       - rest
     networks:
-      - empatando
+      - cubalove
 
   # ===========================================
   # 7. SUPABASE REALTIME — 128MB
@@ -278,7 +278,7 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - empatando
+      - cubalove
 
   # ===========================================
   # 8. NEXT.JS APP (Bun runtime) — 1GB RAM
@@ -287,7 +287,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: empatando-app
+    container_name: cubalove-app
     restart: unless-stopped
     deploy:
       resources:
@@ -329,7 +329,7 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - empatando
+      - cubalove
     logging:
       driver: "json-file"
       options:
@@ -360,4 +360,4 @@ services:
       - storage
       - realtime
     networks:
-      - empatando
+      - cubalove

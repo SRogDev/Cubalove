@@ -1,5 +1,5 @@
 # =============================================================================
-# Empatando — Production Dockerfile (Bun runtime)
+# Cubalove — Production Dockerfile (Bun runtime)
 # Multi-stage build for minimal image size
 # =============================================================================
 

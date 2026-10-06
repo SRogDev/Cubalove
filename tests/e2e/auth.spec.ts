@@ -10,7 +10,7 @@ test.describe("Auth flow", () => {
 
     test("la página de login se carga correctamente", async ({ page }) => {
         await page.goto("/auth/login");
-        await expect(page).toHaveTitle(/Empatando/);
+        await expect(page).toHaveTitle(/Cubalove/);
         // Debe tener el botón de Google OAuth
         await expect(
             page.getByRole("button", { name: /google/i }),
