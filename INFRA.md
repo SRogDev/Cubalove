@@ -38,7 +38,7 @@ CDN y proxy de seguridad frente a todo el tráfico público.
 │  └────────────────────┘  │
 └──────────────────────────┘
 
-* Storage de Supabase configurado para usar DO Spaces como backend S3
+* Storage de Supabase configurado para usar almacenamiento S3-compatible como backend
 ```
 
 ## Componentes
@@ -79,25 +79,28 @@ Incluye: PostgreSQL, GoTrue (Auth), PostgREST, Realtime, Storage API, Studio (ad
 | GoTrue (Auth)   | 9999           | Autenticación y OAuth            |
 | PostgREST       | 3000           | API REST auto-generada           |
 | Realtime        | 4000           | WebSocket para chat y notifs     |
-| Storage API     | 5000           | Gestión de archivos (→ DO Spaces)|
+| Storage API     | 5000           | Gestión de archivos (→ S3-compatible)|
 | Studio          | 3001           | Panel admin (solo acceso interno)|
 | Kong            | 8000           | API Gateway                      |
 
-**Storage → Digital Ocean Spaces:**
-El Storage API de Supabase se configura para usar DO Spaces como backend S3 compatible
-en lugar del almacenamiento local. En el `docker-compose.yml` de Supabase:
+**Storage → S3-compatible (agnóstico al proveedor):**
+El Storage API de Supabase se configura para usar cualquier almacenamiento S3-compatible
+(Hetzner Object Storage, DigitalOcean Spaces, MinIO, AWS S3...) como backend
+en lugar del almacenamiento local. En el `docker-compose.yml`:
 
 ```yaml
 storage:
   environment:
     STORAGE_BACKEND: s3
-    STORAGE_S3_BUCKET: dating-cuba-storage
-    STORAGE_S3_ENDPOINT: https://nyc3.digitaloceanspaces.com
-    STORAGE_S3_REGION: nyc3
-    STORAGE_S3_ACCESS_KEY: ${DO_SPACES_KEY}
-    STORAGE_S3_SECRET_KEY: ${DO_SPACES_SECRET}
+    STORAGE_S3_BUCKET: ${S3_BUCKET}
+    STORAGE_S3_ENDPOINT: ${S3_ENDPOINT}
+    STORAGE_S3_REGION: ${S3_REGION}
+    STORAGE_S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+    STORAGE_S3_SECRET_KEY: ${S3_SECRET_KEY}
     STORAGE_S3_FORCE_PATH_STYLE: "true"
 ```
+
+Ver las variables `S3_*` y `STORAGE_IMAGE_HOSTNAMES` en `.env.example`.
 
 ### 3. Digital Ocean Spaces (Object Storage)
 
@@ -133,7 +136,7 @@ Cloudflare actúa como proxy frente a toda la infraestructura pública.
 |-----------------------------|------------------------------|
 | `datingcuba.com`            | Next.js (Droplet)            |
 | `supabase.datingcuba.com`   | Kong API Gateway (Droplet)   |
-| `cdn.datingcuba.com`        | DO Spaces CDN                |
+| `cdn.datingcuba.com`        | CDN (origen: S3-compatible)  |
 
 **Configuración de Image Resizing:**
 Las imágenes de perfil se sirven mediante Cloudflare Image Resizing para entregar
@@ -191,8 +194,8 @@ Push a main → GitHub Webhook → Dokploy detecta cambio →
 
 ## Backups
 
-- **PostgreSQL**: Backup diario automático vía `pg_dump` a DO Spaces
-- **DO Spaces**: Versionado de objetos habilitado
+- **PostgreSQL**: Backup diario automático vía `pg_dump` al storage S3-compatible
+- **Storage S3**: Versionado de objetos habilitado (si el proveedor lo soporta)
 - **Retención**: 30 días de backups diarios
 
 ## Monitoreo
