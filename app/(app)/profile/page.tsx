@@ -30,6 +30,7 @@ import {
 import { IdealPartnerModal } from "@/components/discover/ideal-partner-modal";
 import { getMyProfile, getIdealDescription } from "@/app/actions/profile";
 import { getAge } from "@/lib/utils";
+import { COUPLE_MODE_ENABLED } from "@/lib/flags";
 import { SUGGESTED_PROMPTS, SUGGESTED_INTERESTS } from "@/lib/mock-data";
 import { createClient } from "@/lib/supabase/client";
 import type { UserProfile } from "@/lib/types";
@@ -294,15 +295,17 @@ export default function ProfilePage() {
           <ChevronRight size={16} className="text-muted-foreground" aria-hidden="true" />
         </button>
 
-        <Link
-          href="/pareja"
-          className="w-full flex items-center gap-3 rounded-2xl bg-pink-50 dark:bg-pink-950/20 border border-pink-100 dark:border-pink-900/30 p-4 text-sm font-medium text-pink-700 dark:text-pink-300 transition-colors hover:bg-pink-100 dark:hover:bg-pink-950/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          aria-label="Modo pareja"
-        >
-          <Heart size={18} aria-hidden="true" />
-          <span className="flex-1 text-left">Modo Pareja</span>
-          <ChevronRight size={16} aria-hidden="true" />
-        </Link>
+        {COUPLE_MODE_ENABLED && (
+          <Link
+            href="/pareja"
+            className="w-full flex items-center gap-3 rounded-2xl bg-pink-50 dark:bg-pink-950/20 border border-pink-100 dark:border-pink-900/30 p-4 text-sm font-medium text-pink-700 dark:text-pink-300 transition-colors hover:bg-pink-100 dark:hover:bg-pink-950/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="Modo pareja"
+          >
+            <Heart size={18} aria-hidden="true" />
+            <span className="flex-1 text-left">Modo Pareja</span>
+            <ChevronRight size={16} aria-hidden="true" />
+          </Link>
+        )}
 
         <Link
           href="/privacidad"

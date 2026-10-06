@@ -17,6 +17,8 @@ import { LoveVault } from "@/components/couple/love-vault";
 import { LoveDiaryModal } from "@/components/couple/love-diary-modal";
 import { createClient } from "@/lib/supabase/client";
 import { useCurrentUser } from "@/lib/hooks/use-current-user";
+import { redirect } from "next/navigation";
+import { COUPLE_MODE_ENABLED } from "@/lib/flags";
 
 interface CoupleRoom {
   id: string;
@@ -45,6 +47,10 @@ interface VaultData {
 }
 
 export default function ParejaPage() {
+  // Couple mode is hidden behind a feature flag (default off).
+  // When disabled, /pareja redirects to /discover before rendering anything.
+  if (!COUPLE_MODE_ENABLED) redirect("/discover");
+
   const [room, setRoom] = useState<CoupleRoom | null>(null);
   const [vault, setVault] = useState<VaultData | null>(null);
   const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([]);
