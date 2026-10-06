@@ -61,7 +61,7 @@ const INITIAL_DATA: OnboardingData = {
     longitude: null,
 };
 
-const STORAGE_KEY = "empatando_onboarding";
+const STORAGE_KEY = "cubalove_onboarding";
 const TOTAL_STEPS = 8;
 
 const STEP_LABELS = [
